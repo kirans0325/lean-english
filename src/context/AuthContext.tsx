@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, LearningPhase } from '../types';
+import { UserProfile, LearningPhase, VoiceGender } from '../types';
 import { StorageService } from '../services/storage';
+import { SpeechEngine } from '../services/speech';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -10,6 +11,7 @@ interface AuthContextType {
   register: (name: string, email: string, phase: LearningPhase) => Promise<void>;
   logout: () => Promise<void>;
   setPhase: (phase: LearningPhase) => void;
+  setDefaultGender: (gender: VoiceGender) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: 'learner@example.com',
     phase: 'basics',
     daily_goal: 15,
+    default_gender: 'female',
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -33,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { user: storedUser } = await StorageService.getUser();
       if (storedUser) {
         setUser(storedUser);
+        if (storedUser.default_gender) {
+          SpeechEngine.setDefaultGender(storedUser.default_gender);
+        }
       }
     } catch (e) {
       console.error('Session restore error:', e);
@@ -48,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       phase: user?.phase || 'basics',
       daily_goal: 15,
+      default_gender: 'female',
     };
     setUser(newUser);
     await StorageService.saveUser(newUser, 'mock_token_neon_db');
@@ -60,6 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       phase,
       daily_goal: 15,
+      default_gender: 'female',
     };
     setUser(newUser);
     await StorageService.saveUser(newUser, 'mock_token_neon_db');
@@ -78,6 +86,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setDefaultGender = async (gender: VoiceGender) => {
+    if (user) {
+      const updated = { ...user, default_gender: gender };
+      setUser(updated);
+      SpeechEngine.setDefaultGender(gender);
+      await StorageService.saveUser(updated);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -88,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         setPhase,
+        setDefaultGender,
       }}
     >
       {children}

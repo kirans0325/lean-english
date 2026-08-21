@@ -6,6 +6,7 @@ export type VoiceAccent = 'en-IN' | 'en-US' | 'en-GB';
 
 export class SpeechEngine {
   private static preferredAccent: VoiceAccent = 'en-IN';
+  private static defaultGender: VoiceGender = 'female'; // Default user preferred voice gender
 
   static setAccent(accent: VoiceAccent) {
     this.preferredAccent = accent;
@@ -15,8 +16,16 @@ export class SpeechEngine {
     return this.preferredAccent;
   }
 
+  static setDefaultGender(gender: VoiceGender) {
+    this.defaultGender = gender;
+  }
+
+  static getDefaultGender(): VoiceGender {
+    return this.defaultGender;
+  }
+
   /**
-   * Premium Speech Synthesis with strict Male vs Lady voice separation and distinct pitch modulation
+   * Premium Speech Synthesis with user-selected default gender preference
    */
   static speak(
     text: string,
@@ -30,15 +39,11 @@ export class SpeechEngine {
     try {
       Speech.stop();
 
-      const gender = options?.gender || 'neutral';
+      const gender = options?.gender || this.defaultGender;
       const accent = options?.accent || this.preferredAccent;
       const slowMode = options?.slowMode || false;
       const rate = slowMode ? 0.70 : 0.92;
 
-      // Unmistakably distinct Pitch Modulation:
-      // Female: 1.32 (High, Feminine Pitch)
-      // Male: 0.76 (Deep, Masculine Pitch)
-      // Neutral: 1.0
       let pitch = 1.0;
       if (gender === 'female') {
         pitch = 1.32;
@@ -67,28 +72,24 @@ export class SpeechEngine {
           const maleKeywords = ['male', 'ravi', 'prabhat', 'rishi', 'david', 'alex', 'george', 'daniel', 'mark', 'guy', 'james', 'man'];
 
           if (gender === 'female') {
-            // Match female voice in preferred accent
             selectedVoice = voices.find(
               (v) =>
                 (v.lang.includes('IN') || v.lang.startsWith('en-IN') || v.name.includes('India')) &&
                 femaleKeywords.some((kw) => v.name.toLowerCase().includes(kw))
             );
 
-            // Fallback to any general female English voice
             if (!selectedVoice) {
               selectedVoice = voices.find(
                 (v) => v.lang.startsWith('en') && femaleKeywords.some((kw) => v.name.toLowerCase().includes(kw))
               );
             }
           } else if (gender === 'male') {
-            // Match male voice in preferred accent
             selectedVoice = voices.find(
               (v) =>
                 (v.lang.includes('IN') || v.lang.startsWith('en-IN') || v.name.includes('India')) &&
                 maleKeywords.some((kw) => v.name.toLowerCase().includes(kw))
             );
 
-            // Fallback to any general male English voice
             if (!selectedVoice) {
               selectedVoice = voices.find(
                 (v) => v.lang.startsWith('en') && maleKeywords.some((kw) => v.name.toLowerCase().includes(kw))
@@ -96,7 +97,6 @@ export class SpeechEngine {
             }
           }
 
-          // Accent fallback if no specific gender keyword matched
           if (!selectedVoice && accent === 'en-IN') {
             selectedVoice = voices.find(
               (v) => v.lang.includes('IN') || v.lang.startsWith('en-IN') || v.name.includes('India')
@@ -124,7 +124,6 @@ export class SpeechEngine {
         return;
       }
 
-      // Native Expo Speech fallback
       Speech.speak(text, {
         language: accent,
         pitch,
@@ -142,9 +141,6 @@ export class SpeechEngine {
     }
   }
 
-  /**
-   * Stop speech
-   */
   static stop() {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -154,9 +150,6 @@ export class SpeechEngine {
     } catch (e) {}
   }
 
-  /**
-   * Web Speech Recognition API
-   */
   static startListening(
     onResult: (text: string, isFinal: boolean) => void,
     onError: (err: string) => void

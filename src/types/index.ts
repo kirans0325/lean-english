@@ -1,5 +1,6 @@
 export type LearningPhase = 'basics' | 'intermediate' | 'advanced' | 'business';
 export type VoiceGender = 'female' | 'male' | 'neutral';
+export type VoiceAccent = 'en-IN' | 'en-US' | 'en-GB';
 
 export interface UserProfile {
   id: number;
@@ -7,6 +8,7 @@ export interface UserProfile {
   email: string;
   phase: LearningPhase;
   daily_goal: number;
+  default_gender?: VoiceGender; // User's preferred default voice gender (female/male)
 }
 
 export interface LessonItem {

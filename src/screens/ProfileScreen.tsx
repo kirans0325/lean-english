@@ -9,10 +9,10 @@ import {
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
-import { LearningPhase } from '../types';
+import { LearningPhase, VoiceGender } from '../types';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, logout, setPhase } = useAuth();
+  const { user, logout, setPhase, setDefaultGender } = useAuth();
   const { xpPoints, streakDays, completedLessons, spokenHistory } = useProgress();
   const [neonStatus, setNeonStatus] = useState<string>('Checking Neon DB Connection...');
 
@@ -40,6 +40,8 @@ export const ProfileScreen: React.FC = () => {
     return Math.round(sum / spokenHistory.length);
   };
 
+  const currentDefaultGender = user?.default_gender || 'female';
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Profile Info Header */}
@@ -52,6 +54,26 @@ export const ProfileScreen: React.FC = () => {
 
         <View style={styles.statusBadge}>
           <Text style={styles.statusBadgeText}>{neonStatus}</Text>
+        </View>
+
+        {/* Default Voice Gender Setting */}
+        <View style={styles.settingBox}>
+          <Text style={styles.settingLabel}>Default AI Voice Preference:</Text>
+          <View style={styles.genderToggleRow}>
+            <TouchableOpacity
+              style={[styles.genderToggleBtn, currentDefaultGender === 'female' && styles.femaleActive]}
+              onPress={() => setDefaultGender('female')}
+            >
+              <Text style={styles.genderToggleText}>👩 Default Lady Voice</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.genderToggleBtn, currentDefaultGender === 'male' && styles.maleActive]}
+              onPress={() => setDefaultGender('male')}
+            >
+              <Text style={styles.genderToggleText}>👨 Default Male Voice</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Phase Selector */}
@@ -172,6 +194,45 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
+  },
+  settingBox: {
+    width: '100%',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+  },
+  settingLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  genderToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  genderToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  femaleActive: {
+    backgroundColor: '#EC4899',
+    borderColor: '#EC4899',
+  },
+  maleActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  genderToggleText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
   phaseLabel: {
     color: colors.textMuted,
