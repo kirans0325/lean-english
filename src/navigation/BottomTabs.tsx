@@ -5,6 +5,7 @@ import { colors } from '../theme/colors';
 export type TabScreenName =
   | 'Home'
   | 'PhaseLessons'
+  | 'GrammarSection'
   | 'SpeakingLab'
   | 'Stories'
   | 'OneMinuteSprint'
@@ -21,6 +22,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({ currentTab, onTabChange 
   const tabs: { name: TabScreenName; label: string; icon: string }[] = [
     { name: 'Home', label: 'Home', icon: '🏠' },
     { name: 'PhaseLessons', label: 'Learn', icon: '📖' },
+    { name: 'GrammarSection', label: 'Grammar', icon: '📘' },
     { name: 'SpeakingLab', label: 'Practice', icon: '🎙️' },
     { name: 'Stories', label: 'Progress', icon: '📊' },
     { name: 'Profile', label: 'Profile', icon: '👤' },
@@ -60,7 +62,7 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 12,
   },
   activeTabItem: {
@@ -75,7 +77,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textMuted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     marginTop: 2,
   },

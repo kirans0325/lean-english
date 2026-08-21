@@ -7,6 +7,7 @@ import { BottomTabs, TabScreenName } from './src/navigation/BottomTabs';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PhaseLessonsScreen } from './src/screens/PhaseLessonsScreen';
+import { GrammarSectionScreen } from './src/screens/GrammarSectionScreen';
 import { MediaHubScreen } from './src/screens/MediaHubScreen';
 import { DailyConversationScreen } from './src/screens/DailyConversationScreen';
 import { SpeakingLabScreen } from './src/screens/SpeakingLabScreen';
@@ -35,6 +36,8 @@ const MainAppContent: React.FC = () => {
         return <HomeScreen onNavigate={handleNavigate} />;
       case 'PhaseLessons':
         return <PhaseLessonsScreen />;
+      case 'GrammarSection':
+        return <GrammarSectionScreen />;
       case 'Stories':
         return <StoriesScreen />;
       case 'OneMinuteSprint':
