@@ -28,12 +28,42 @@ export const AuthScreen: React.FC = () => {
     }
   };
 
+  const handleFillAdmin = () => {
+    setIsRegistering(false);
+    setEmail('admin@fluentai.com');
+    setPassword('admin123');
+    setName('App Administrator');
+  };
+
+  const handleFillLearner = () => {
+    setIsRegistering(false);
+    setEmail('learner@example.com');
+    setPassword('learner123');
+    setName('English Learner');
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.headerBox}>
         <Text style={styles.logoTitle}>FluentAI English</Text>
         <Text style={styles.subtitle}>
           Master English with Movies, News, Daily Roleplays & Real-Time Pronunciation Check
+        </Text>
+      </View>
+
+      {/* Quick Demo Credentials Box for Vercel Evaluators */}
+      <View style={styles.demoBox}>
+        <Text style={styles.demoTitle}>🔑 Quick 1-Tap Login Credentials:</Text>
+        <View style={styles.demoBtnRow}>
+          <TouchableOpacity style={styles.demoBtnAdmin} onPress={handleFillAdmin}>
+            <Text style={styles.demoBtnAdminText}>👑 Fill Admin Credentials</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.demoBtnUser} onPress={handleFillLearner}>
+            <Text style={styles.demoBtnUserText}>👤 Fill Learner Credentials</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.demoDetailsText}>
+          • Admin: admin@fluentai.com / admin123 | Learner: learner@example.com / learner123
         </Text>
       </View>
 
@@ -137,7 +167,7 @@ const styles = StyleSheet.create({
   },
   headerBox: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   logoTitle: {
     color: colors.primary,
@@ -147,10 +177,58 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
+    marginTop: 6,
+    lineHeight: 18,
+  },
+  demoBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  demoTitle: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  demoBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  demoBtnAdmin: {
+    flex: 1,
+    backgroundColor: '#F59E0B',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  demoBtnAdminText: {
+    color: '#000',
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  demoBtnUser: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  demoBtnUserText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  demoDetailsText: {
+    color: colors.textMuted,
+    fontSize: 10,
+    marginTop: 4,
   },
   card: {
     backgroundColor: colors.cardBg,
