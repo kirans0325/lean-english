@@ -1,160 +1,206 @@
-import { DailyConversationScenario } from '../types';
+import { LearningPhase, VoiceGender } from '../types';
 
-export const dailyConversations: DailyConversationScenario[] = [
+export interface UsefulPhrase {
+  phrase: string;
+  explanation: string;
+}
+
+export interface ConversationReportData {
+  overallScore: number;
+  subScores: {
+    fluency: number;
+    pronunciation: number;
+    grammar: number;
+    vocabulary: number;
+  };
+  whatYouDidWell: string[];
+  grammarCorrections: { mistake: string; correction: string; reason: string }[];
+  betterNaturalPhrases: { spoken: string; natural: string }[];
+  pronunciationIssues: { word: string; score: number; tip: string }[];
+  recommendedNextPractice: string;
+}
+
+export interface AIRoleplayScenario {
+  id: string;
+  title: string;
+  scenario: string;
+  userRole: string;
+  aiRole: string;
+  phase: LearningPhase;
+  difficulty: 'Basics' | 'Intermediate' | 'Advanced' | 'Business';
+  estimatedTimeMins: number;
+  skills: string[];
+  partnerName: string;
+  partnerGender: VoiceGender;
+  avatarUrl: string;
+  usefulPhrases: UsefulPhrase[];
+  turns: {
+    id: string;
+    speaker: 'partner' | 'user';
+    speakerGender?: VoiceGender;
+    text: string;
+    audioText: string;
+    hintOptions?: string[];
+  }[];
+  sampleReport: ConversationReportData;
+}
+
+export const aiRoleplayScenarios: AIRoleplayScenario[] = [
   {
-    id: 'conv-1',
-    title: 'Ordering Coffee at a London Café',
-    scenario: 'Practice ordering your favorite morning beverage and pastry with a friendly barista.',
-    phase: 'basics',
-    partnerName: 'Emma (Lady Barista)',
-    partnerRole: 'Barista',
+    id: 'sim-1',
+    title: 'Explaining a Project Delay to Your Manager',
+    scenario: 'You need to explain a 2-day milestone delay to your manager due to unexpected API technical issues and present a mitigation plan.',
+    userRole: 'Project Engineer',
+    aiRole: 'Engineering Manager (Victoria)',
+    phase: 'intermediate',
+    difficulty: 'Intermediate',
+    estimatedTimeMins: 5,
+    skills: ['Speaking', 'Workplace English', 'Confidence'],
+    partnerName: 'Victoria (Lady Manager)',
     partnerGender: 'female',
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+    usefulPhrases: [
+      { phrase: 'The main reason for the delay is...', explanation: 'Clear statement of root cause.' },
+      { phrase: 'We are currently working on...', explanation: 'Describes active troubleshooting.' },
+      { phrase: 'I expect the project to be completed by...', explanation: 'Sets a realistic committed deadline.' },
+      { phrase: 'One possible solution would be...', explanation: 'Proposes proactive problem solving.' }
+    ],
     turns: [
       {
-        id: 'turn-1',
+        id: 't1',
+        speaker: 'partner',
+        speakerGender: 'female',
+        text: 'Hi Alex, thanks for stopping by. I noticed the Q3 integration task was rescheduled. Could you walk me through the situation?',
+        audioText: 'Hi Alex, thanks for stopping by. I noticed the Q3 integration task was rescheduled. Could you walk me through the situation?'
+      },
+      {
+        id: 't2',
+        speaker: 'user',
+        text: 'The main reason for the delay is an unexpected backend API rate limit. We are currently working on a caching patch to resolve it.',
+        audioText: 'The main reason for the delay is an unexpected backend API rate limit. We are currently working on a caching patch to resolve it.',
+        hintOptions: [
+          'The main reason for the delay is a third-party API issue. We are patching it now.',
+          'We ran into an unexpected bug, but we expect completion by Friday afternoon.'
+        ]
+      },
+      {
+        id: 't3',
+        speaker: 'partner',
+        speakerGender: 'female',
+        text: 'I understand. What is your updated estimate for delivery, and do we need to alert stakeholders?',
+        audioText: 'I understand. What is your updated estimate for delivery, and do we need to alert stakeholders?'
+      },
+      {
+        id: 't4',
+        speaker: 'user',
+        text: 'I expect the project to be completed by Friday 3 PM. One possible solution would be to deploy a staging preview first.',
+        audioText: 'I expect the project to be completed by Friday 3 PM. One possible solution would be to deploy a staging preview first.',
+        hintOptions: [
+          'I expect completion by Friday at 3 PM, so no major stakeholder delay is needed.',
+          'One possible solution would be to push the preview environment first.'
+        ]
+      },
+      {
+        id: 't5',
+        speaker: 'partner',
+        speakerGender: 'female',
+        text: 'That sounds like a solid plan. Thanks for keeping me updated so promptly!',
+        audioText: 'That sounds like a solid plan. Thanks for keeping me updated so promptly!'
+      }
+    ],
+    sampleReport: {
+      overallScore: 82,
+      subScores: {
+        fluency: 85,
+        pronunciation: 78,
+        grammar: 80,
+        vocabulary: 88
+      },
+      whatYouDidWell: [
+        'Used professional diplomatic phrasing ("The main reason for the delay is...").',
+        'Maintained a confident, steady speech pace.',
+        'Proactively presented a clear resolution timeline.'
+      ],
+      grammarCorrections: [
+        {
+          mistake: 'We currently work on patch',
+          correction: 'We are currently working on a patch',
+          reason: 'Use Present Continuous for active ongoing tasks.'
+        }
+      ],
+      betterNaturalPhrases: [
+        {
+          spoken: 'I expect completion Friday 3 PM',
+          natural: 'I anticipate wrapping up by Friday at 3 PM.'
+        }
+      ],
+      pronunciationIssues: [
+        { word: 'Unexpected', score: 65, tip: 'Stress the third syllable: /ˌʌnɪkˈspektɪd/.' },
+        { word: 'Solution', score: 70, tip: 'Keep the second vowel clear: /səˈluːʃn/.' }
+      ],
+      recommendedNextPractice: 'Practice the "Investor Pitching" 1-Minute Speech Sprint to build executive confidence!'
+    }
+  },
+  {
+    id: 'sim-2',
+    title: 'Ordering Specialty Coffee at a Busy London Café',
+    scenario: 'You are ordering coffee and pastries at an artisanal café during morning rush hour.',
+    userRole: 'Customer',
+    aiRole: 'Head Barista (Emma)',
+    phase: 'basics',
+    difficulty: 'Basics',
+    estimatedTimeMins: 4,
+    skills: ['Daily Conversation', 'Polite Requests', 'Fluency'],
+    partnerName: 'Emma (Lady Barista)',
+    partnerGender: 'female',
+    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
+    usefulPhrases: [
+      { phrase: 'I would like to order a...', explanation: 'Standard polite ordering phrase.' },
+      { phrase: 'Could I get that with...', explanation: 'Customizing your milk or size preference.' },
+      { phrase: 'How much is the total?', explanation: 'Asking for final payment amount.' }
+    ],
+    turns: [
+      {
+        id: 't1',
         speaker: 'partner',
         speakerGender: 'female',
         text: 'Good morning! Welcome to Artisanal Roast. What can I get started for you today?',
         audioText: 'Good morning! Welcome to Artisanal Roast. What can I get started for you today?'
       },
       {
-        id: 'turn-2',
+        id: 't2',
         speaker: 'user',
         text: 'Hi Emma! I would like an oat milk cappuccino and a croissant, please.',
         audioText: 'Hi Emma! I would like an oat milk cappuccino and a croissant, please.',
         hintOptions: [
           'I would like an oat milk cappuccino, please.',
-          'Can I get a black Americano and a muffin?',
-          'Just a glass of iced water, thank you.'
-        ],
-        explanation: 'Saying "I would like..." is the standard polite phrasing.'
-      },
-      {
-        id: 'turn-3',
-        speaker: 'partner',
-        speakerGender: 'female',
-        text: 'Great choice! Would you like that drink regular or large, and for here or to go?',
-        audioText: 'Great choice! Would you like that drink regular or large, and for here or to go?'
-      },
-      {
-        id: 'turn-4',
-        speaker: 'user',
-        text: 'A large, please, and I will have it to go. How much is the total?',
-        audioText: 'A large, please, and I will have it to go. How much is the total?',
-        hintOptions: [
-          'A large, please, to go. How much does it cost?',
-          'Regular size, for here, please.'
-        ]
-      },
-      {
-        id: 'turn-5',
-        speaker: 'partner',
-        speakerGender: 'female',
-        text: 'That will be £6.50 in total. You can tap your card right on the terminal!',
-        audioText: 'That will be £6.50 in total. You can tap your card right on the terminal!'
-      }
-    ]
-  },
-  {
-    id: 'conv-2',
-    title: 'Hotel Check-In & Room Preference',
-    scenario: 'Check into a boutique hotel, request a high floor with a view, and ask about breakfast hours.',
-    phase: 'basics',
-    partnerName: 'Sophia (Lady Receptionist)',
-    partnerRole: 'Front Desk Host',
-    partnerGender: 'female',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    turns: [
-      {
-        id: 'turn-1',
-        speaker: 'partner',
-        speakerGender: 'female',
-        text: 'Welcome to the Grand Heritage Hotel! May I have your name for the reservation?',
-        audioText: 'Welcome to the Grand Heritage Hotel! May I have your name for the reservation?'
-      },
-      {
-        id: 'turn-2',
-        speaker: 'user',
-        text: 'Good evening! I have a reservation under my name for two nights. Could I request a room on a quiet upper floor?',
-        audioText: 'Good evening! I have a reservation under my name for two nights. Could I request a room on a quiet upper floor?',
-        hintOptions: [
-          'Good evening! Yes, reservation under my name for two nights.',
-          'Hi! I booked a room with a city view.'
-        ]
-      },
-      {
-        id: 'turn-3',
-        speaker: 'partner',
-        speakerGender: 'female',
-        text: 'Certainly! I have assigned you room 704 on the top floor with a city skyline view. Breakfast is served on the mezzanine floor from 7 to 10 AM.',
-        audioText: 'Certainly! I have assigned you room 704 on the top floor with a city skyline view. Breakfast is served on the mezzanine floor from 7 to 10 AM.'
-      }
-    ]
-  },
-  {
-    id: 'conv-3',
-    title: 'Discussing Movie Recommendations & Opinions',
-    scenario: 'Share your thoughts on recent films, favorite genres, and recommendation highlights with a movie enthusiast friend.',
-    phase: 'intermediate',
-    partnerName: 'Liam (Male Critic)',
-    partnerRole: 'Film Critic Friend',
-    partnerGender: 'male',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    turns: [
-      {
-        id: 'turn-1',
-        speaker: 'partner',
-        speakerGender: 'male',
-        text: 'Hey! Have you watched any captivating movies or short films lately?',
-        audioText: 'Hey! Have you watched any captivating movies or short films lately?'
-      },
-      {
-        id: 'turn-2',
-        speaker: 'user',
-        text: 'Yes! I recently saw a fascinating sci-fi film. The plot twists were absolutely mind-blowing!',
-        audioText: 'Yes! I recently saw a fascinating sci-fi film. The plot twists were absolutely mind-blowing!',
-        hintOptions: [
-          'Yes! I watched a brilliant documentary about nature.',
-          'Not recently, but I am looking for good recommendations!'
-        ]
-      },
-      {
-        id: 'turn-3',
-        speaker: 'partner',
-        speakerGender: 'male',
-        text: 'Sounds amazing! Who was your favorite character, and what made the dialogue so memorable?',
-        audioText: 'Sounds amazing! Who was your favorite character, and what made the dialogue so memorable?'
-      }
-    ]
-  },
-  {
-    id: 'conv-4',
-    title: 'Job Interview Pitch & Salary Negotiation',
-    scenario: 'Engage in a high-stakes interview scenario for a Senior Project Lead position with a Corporate HR Director.',
-    phase: 'advanced',
-    partnerName: 'Victoria Sterling (Lady VP)',
-    partnerRole: 'VP of Global Talent Acquisition',
-    partnerGender: 'female',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-    turns: [
-      {
-        id: 'turn-1',
-        speaker: 'partner',
-        speakerGender: 'female',
-        text: 'Thank you for taking the time today. Could you articulate how your strategic background aligns with our expanded roadmap?',
-        audioText: 'Thank you for taking the time today. Could you articulate how your strategic background aligns with our expanded roadmap?'
-      },
-      {
-        id: 'turn-2',
-        speaker: 'user',
-        text: 'Certainly, Victoria. Throughout my career, I have leveraged data-driven frameworks to scale cross-functional initiatives efficiently.',
-        audioText: 'Certainly, Victoria. Throughout my career, I have leveraged data-driven frameworks to scale cross-functional initiatives efficiently.',
-        hintOptions: [
-          'Throughout my career, I have led cross-functional teams to deliver projects ahead of schedule.',
-          'I specialize in strategic planning, optimizing workflows, and maximizing team productivity.'
+          'Can I get a black Americano and a muffin?'
         ]
       }
-    ]
+    ],
+    sampleReport: {
+      overallScore: 90,
+      subScores: {
+        fluency: 92,
+        pronunciation: 88,
+        grammar: 90,
+        vocabulary: 90
+      },
+      whatYouDidWell: [
+        'Polite greeting and clear order specification.',
+        'Smooth pronunciation of menu items.'
+      ],
+      grammarCorrections: [],
+      betterNaturalPhrases: [
+        {
+          spoken: 'I want cappuccino',
+          natural: 'I would like an oat cappuccino, please.'
+        }
+      ],
+      pronunciationIssues: [
+        { word: 'Cappuccino', score: 82, tip: 'Soft "c" sound: /ˌkæpʊˈtʃiːnoʊ/.' }
+      ],
+      recommendedNextPractice: 'Try the "Hotel Check-In" conversation to practice travel phrases!'
+    }
   }
 ];
