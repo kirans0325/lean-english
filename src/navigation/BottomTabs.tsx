@@ -5,11 +5,11 @@ import { colors } from '../theme/colors';
 export type TabScreenName =
   | 'Home'
   | 'PhaseLessons'
+  | 'SpeakingLab'
   | 'Stories'
   | 'OneMinuteSprint'
   | 'MediaHub'
   | 'DailyConversation'
-  | 'SpeakingLab'
   | 'Profile';
 
 interface BottomTabsProps {
@@ -20,12 +20,10 @@ interface BottomTabsProps {
 export const BottomTabs: React.FC<BottomTabsProps> = ({ currentTab, onTabChange }) => {
   const tabs: { name: TabScreenName; label: string; icon: string }[] = [
     { name: 'Home', label: 'Home', icon: '🏠' },
-    { name: 'PhaseLessons', label: 'Curriculum', icon: '📚' },
-    { name: 'Stories', label: 'Stories', icon: '📖' },
-    { name: 'OneMinuteSprint', label: '1-Min Sprint', icon: '⏱️' },
-    { name: 'DailyConversation', label: 'Roleplay', icon: '🗣️' },
-    { name: 'SpeakingLab', label: 'Speaking', icon: '🎙️' },
-    { name: 'Profile', label: 'History', icon: '📊' },
+    { name: 'PhaseLessons', label: 'Learn', icon: '📖' },
+    { name: 'SpeakingLab', label: 'Practice', icon: '🎙️' },
+    { name: 'Stories', label: 'Progress', icon: '📊' },
+    { name: 'Profile', label: 'Profile', icon: '👤' },
   ];
 
   return (
@@ -38,7 +36,7 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({ currentTab, onTabChange 
             style={[styles.tabItem, isActive && styles.activeTabItem]}
             onPress={() => onTabChange(tab.name)}
           >
-            <Text style={styles.icon}>{tab.icon}</Text>
+            <Text style={[styles.icon, isActive && styles.activeIcon]}>{tab.icon}</Text>
             <Text style={[styles.label, isActive && styles.activeLabel]}>
               {tab.label}
             </Text>
@@ -52,33 +50,37 @@ export const BottomTabs: React.FC<BottomTabsProps> = ({ currentTab, onTabChange 
 const styles = StyleSheet.create({
   navBar: {
     flexDirection: 'row',
-    backgroundColor: colors.cardBg,
+    backgroundColor: '#0C101D',
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
-    paddingVertical: 8,
-    paddingHorizontal: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     justifyContent: 'space-around',
   },
   tabItem: {
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
   activeTabItem: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#1E1B4B',
   },
   icon: {
-    fontSize: 16,
+    fontSize: 18,
+    opacity: 0.6,
+  },
+  activeIcon: {
+    opacity: 1,
   },
   label: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
   },
   activeLabel: {
-    color: '#FFF',
+    color: colors.primary,
     fontWeight: '900',
   },
 });

@@ -3,51 +3,54 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
-import { LearningPhase } from '../types';
 
 interface HeaderProps {
   onOpenProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
-  const { user, setPhase } = useAuth();
+  const { user } = useAuth();
   const { xpPoints, streakDays } = useProgress();
 
-  const getPhaseColor = (phase?: LearningPhase) => {
-    switch (phase) {
-      case 'basics': return colors.basics;
-      case 'intermediate': return colors.intermediate;
-      case 'advanced': return colors.advanced;
-      case 'business': return colors.business;
-      default: return colors.primary;
-    }
-  };
-
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={onOpenProfile} style={styles.userInfo}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() || 'U'}</Text>
-        </View>
-        <View>
-          <Text style={styles.userName}>{user?.name || 'Learner'}</Text>
-          <View style={[styles.phaseBadge, { backgroundColor: getPhaseColor(user?.phase) }]}>
-            <Text style={styles.phaseBadgeText}>{user?.phase?.toUpperCase() || 'BASICS'}</Text>
+    <View style={styles.headerBox}>
+      {/* Top Greeting Row */}
+      <View style={styles.topRow}>
+        <View style={styles.greetingLeft}>
+          <Text style={styles.menuIcon}>☰</Text>
+          <View>
+            <Text style={styles.greetingText}>Hello, {user?.name || 'English Learner'}! 👋</Text>
+            <Text style={styles.subGreeting}>Let's make today a great learning day.</Text>
           </View>
         </View>
-      </TouchableOpacity>
 
-      <View style={styles.statsContainer}>
-        {/* Streak Counter */}
-        <View style={styles.statBadge}>
-          <Text style={styles.statIcon}>🔥</Text>
-          <Text style={styles.statText}>{streakDays} d</Text>
+        <View style={styles.topRight}>
+          <TouchableOpacity style={styles.bellBtn}>
+            <Text style={styles.bellIcon}>🔔</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onOpenProfile} style={styles.avatarBtn}>
+            <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() || 'E'}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Stats Cards Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statEmoji}>🔥</Text>
+          <View>
+            <Text style={styles.statVal}>{streakDays}</Text>
+            <Text style={styles.statLbl}>Day Streak</Text>
+          </View>
         </View>
 
-        {/* XP Counter */}
-        <View style={[styles.statBadge, styles.xpBadge]}>
-          <Text style={styles.statIcon}>⚡</Text>
-          <Text style={styles.xpText}>{xpPoints} XP</Text>
+        <View style={styles.statCard}>
+          <Text style={styles.statEmoji}>⚡</Text>
+          <View>
+            <Text style={styles.statVal}>{xpPoints} XP</Text>
+            <Text style={styles.statLbl}>Total XP</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -55,82 +58,96 @@ export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  headerBox: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.cardBg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
+    marginBottom: 14,
   },
-  userInfo: {
+  greetingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  avatar: {
+  menuIcon: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  greetingText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  subGreeting: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  topRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.cardBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  bellIcon: {
+    fontSize: 16,
+  },
+  avatarBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
   avatarText: {
     color: '#FFF',
-    fontWeight: 'bold',
+    fontWeight: '900',
     fontSize: 16,
   },
-  userName: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '700',
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
   },
-  phaseBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  phaseBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  statsContainer: {
+  statCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  statBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: colors.cardBg,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  xpBadge: {
-    borderColor: colors.accent,
+  statEmoji: {
+    fontSize: 20,
+    marginRight: 10,
   },
-  statIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  statText: {
+  statVal: {
     color: colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  xpText: {
-    color: colors.accent,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '800',
+  },
+  statLbl: {
+    color: colors.textSecondary,
+    fontSize: 10,
   },
 });
