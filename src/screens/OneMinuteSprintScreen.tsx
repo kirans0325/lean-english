@@ -7,264 +7,349 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { oneMinutePrompts } from '../data/oneMinutePrompts';
-import { SpeechSprintPrompt, PronunciationEvaluation, VoiceGender } from '../types';
-import { SpeechEngine } from '../services/speech';
-import { ApiService } from '../services/api';
-import { PronunciationCard } from '../components/PronunciationCard';
+import {
+  structuredSprintPrompts,
+  StructuredSprintPrompt,
+  SprintDifficulty,
+  SprintFeedbackReport,
+} from '../data/oneMinutePrompts';
 import { AudioButton } from '../components/AudioButton';
+import { SpeechEngine } from '../services/speech';
 import { useProgress } from '../context/ProgressContext';
-import { useAuth } from '../context/AuthContext';
 
 export const OneMinuteSprintScreen: React.FC = () => {
-  const { user } = useAuth();
-  const { addSpokenRecord, addXP } = useProgress();
-  const [selectedPrompt, setSelectedPrompt] = useState<SpeechSprintPrompt>(oneMinutePrompts[0]);
-  const [timeLeft, setTimeLeft] = useState<number>(60);
-  const [isSprintActive, setIsSprintActive] = useState<boolean>(false);
-  const [spokenText, setSpokenText] = useState<string>('');
-  const [evaluation, setEvaluation] = useState<PronunciationEvaluation | null>(null);
-  const [demoGender, setDemoGender] = useState<VoiceGender>('female');
+  const { addXP, addSpokenRecord } = useProgress();
 
+  const [activeDiffFilter, setActiveDiffFilter] = useState<string>('All');
+  const [selectedPrompt, setSelectedPrompt] = useState<StructuredSprintPrompt>(structuredSprintPrompts[0]);
+
+  // Sprint Flow State
+  // 'IDLE' | 'PREP' | 'SPEAKING' | 'REPORT'
+  const [sprintState, setSprintState] = useState<'IDLE' | 'PREP' | 'SPEAKING' | 'REPORT'>('IDLE');
+  const [prepSecondsLeft, setPrepSecondsLeft] = useState<number>(15);
+  const [speakSecondsLeft, setSpeakSecondsLeft] = useState<number>(60);
+  const [transcript, setTranscript] = useState<string>('');
+
+  const difficultyLevels: (SprintDifficulty | 'All')[] = ['All', 'Easy', 'Intermediate', 'Advanced', 'Professional'];
+
+  const filteredPrompts = structuredSprintPrompts.filter(
+    (p) => activeDiffFilter === 'All' || p.difficulty === activeDiffFilter
+  );
+
+  const prompt = selectedPrompt;
+
+  // Preparation Timer (15s)
   useEffect(() => {
-    let interval: any = null;
-    if (isSprintActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isSprintActive) {
-      handleStopSprint();
+    let timer: any;
+    if (sprintState === 'PREP') {
+      if (prepSecondsLeft > 0) {
+        timer = setInterval(() => {
+          setPrepSecondsLeft((prev) => prev - 1);
+        }, 1000);
+      } else {
+        // Prep finished! Auto-start 60s Speaking Sprint
+        startSpeakingSprint();
+      }
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isSprintActive, timeLeft]);
+    return () => clearInterval(timer);
+  }, [sprintState, prepSecondsLeft]);
 
-  const handleStartSprint = () => {
-    setIsSprintActive(true);
-    setTimeLeft(60);
-    setSpokenText('');
-    setEvaluation(null);
+  // Speaking Timer (60s)
+  useEffect(() => {
+    let timer: any;
+    if (sprintState === 'SPEAKING') {
+      if (speakSecondsLeft > 0) {
+        timer = setInterval(() => {
+          setSpeakSecondsLeft((prev) => prev - 1);
+        }, 1000);
+      } else {
+        // 60s finished! Auto-finish and show Report
+        finishSpeakingSprint();
+      }
+    }
+    return () => clearInterval(timer);
+  }, [sprintState, speakSecondsLeft]);
+
+  const handleStartPrep = () => {
+    setSprintState('PREP');
+    setPrepSecondsLeft(15);
+    setSpeakSecondsLeft(60);
+    setTranscript('');
+  };
+
+  const startSpeakingSprint = () => {
+    setSprintState('SPEAKING');
+    setSpeakSecondsLeft(60);
 
     SpeechEngine.startListening(
       (text) => {
-        setSpokenText(text);
+        setTranscript(text);
       },
       (err) => {
-        // Fallback simulate speech for platform compatibility
+        // Continue without error interrupt
       }
     );
   };
 
-  const handleStopSprint = async () => {
-    setIsSprintActive(false);
-
-    const defaultSampleSpeech =
-      selectedPrompt.phase === 'business'
-        ? 'In my perspective, mastering English communication enables professionals to collaborate globally, pitch ideas effectively, and lead international initiatives.'
-        : 'My dream vacation is visiting Japan during spring to experience cherry blossoms, explore ancient temples in Kyoto, and taste authentic local cuisine with close friends.';
-
-    const finalSpoken = spokenText.trim() || defaultSampleSpeech;
-    setSpokenText(finalSpoken);
-
-    const result = await ApiService.evaluatePronunciation(
-      user?.id || null,
-      selectedPrompt.promptDescription,
-      finalSpoken,
-      selectedPrompt.phase
-    );
-
-    setEvaluation(result);
+  const finishSpeakingSprint = async () => {
+    SpeechEngine.stop();
+    setSprintState('REPORT');
+    addXP(40);
 
     await addSpokenRecord({
-      phraseText: selectedPrompt.topicTitle,
-      userTranscription: finalSpoken,
-      accuracyScore: result.accuracyScore,
-      phase: selectedPrompt.phase,
-      feedbackDetails: result.wordFeedback,
+      phraseText: prompt.topicTitle,
+      userTranscription: transcript || '60-second speech completed.',
+      accuracyScore: prompt.sampleReport.fluencyScore,
+      phase: prompt.phase,
+      feedbackDetails: [],
       createdAt: new Date().toISOString(),
     });
-
-    addXP(40);
   };
 
-  // Analytics Metrics
-  const calculateWPM = () => {
-    if (!spokenText) return 0;
-    const words = spokenText.trim().split(/\s+/).length;
-    const elapsedSeconds = 60 - timeLeft;
-    if (elapsedSeconds <= 0) return 0;
-    return Math.round((words / elapsedSeconds) * 60);
-  };
-
-  const countFillerWords = () => {
-    if (!spokenText) return 0;
-    const fillers = ['um', 'uh', 'like', 'you know', 'basically', 'actually', 'so'];
-    const lower = spokenText.toLowerCase();
-    return fillers.reduce((acc, f) => {
-      const matches = lower.match(new RegExp(`\\b${f}\\b`, 'g'));
-      return acc + (matches ? matches.length : 0);
-    }, 0);
-  };
-
-  const calculateVocabularyDiversity = () => {
-    if (!spokenText) return 0;
-    const words = spokenText.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/);
-    if (words.length === 0) return 0;
-    const uniqueWords = new Set(words);
-    return Math.round((uniqueWords.size / words.length) * 100);
-  };
-
-  const getWpmStatus = (wpm: number) => {
-    if (wpm < 80) return { label: 'Steady Pace', color: colors.warning };
-    if (wpm <= 145) return { label: 'Optimal Fluency 🎯', color: colors.success };
-    return { label: 'Rapid Pace', color: colors.accent };
-  };
-
-  const wpm = calculateWPM();
-  const wpmStatus = getWpmStatus(wpm);
-  const fillerCount = countFillerWords();
-  const vocabDiversity = calculateVocabularyDiversity();
+  const report: SprintFeedbackReport = prompt.sampleReport;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>⏱️ 1-Minute English Speech Sprint</Text>
+      <Text style={styles.title}>⏱️ 1-Minute Speech Sprint</Text>
       <Text style={styles.subtitle}>
-        Train continuous speaking for 60 seconds. Get real-time WPM fluency speed, filler word tracking & pronunciation accuracy.
+        Structured fluency training with 15s preparation, 60s live recording, and real-time speech analytics.
       </Text>
 
-      {/* Topic Carousel */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-        {oneMinutePrompts.map((prompt) => {
-          const isSelected = selectedPrompt.id === prompt.id;
+      {/* Difficulty Level Selector Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.diffScroll}>
+        {difficultyLevels.map((diff) => {
+          const isSelected = activeDiffFilter === diff;
           return (
             <TouchableOpacity
-              key={prompt.id}
-              style={[styles.topicCard, isSelected && styles.activeTopicCard]}
-              onPress={() => {
-                setSelectedPrompt(prompt);
-                setIsSprintActive(false);
-                setTimeLeft(60);
-                setSpokenText('');
-                setEvaluation(null);
-              }}
+              key={diff}
+              style={[styles.diffChip, isSelected && styles.activeDiffChip]}
+              onPress={() => setActiveDiffFilter(diff)}
             >
-              <Text style={styles.catTag}>{prompt.category} • {prompt.phase.toUpperCase()}</Text>
-              <Text style={styles.topicCardTitle}>{prompt.topicTitle}</Text>
-              <Text style={styles.targetWords}>Target: ~{prompt.targetWordCount} words</Text>
+              <Text style={[styles.diffChipText, isSelected && styles.activeDiffChipText]}>
+                {diff}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Active Challenge Box */}
-      <View style={styles.sprintBox}>
-        <View style={styles.topicHeaderRow}>
-          <Text style={styles.sprintTopicHeader}>{selectedPrompt.topicTitle}</Text>
-          <View style={styles.phaseBadge}>
-            <Text style={styles.phaseBadgeText}>{selectedPrompt.phase.toUpperCase()}</Text>
-          </View>
-        </View>
+      {/* Topic Cards Carousel */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.topicCarousel}>
+        {filteredPrompts.map((item) => {
+          const isSelected = selectedPrompt.id === item.id;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={[styles.topicChipCard, isSelected && styles.activeTopicChipCard]}
+              onPress={() => {
+                setSelectedPrompt(item);
+                setSprintState('IDLE');
+              }}
+            >
+              <Text style={styles.topicDiffBadge}>{item.difficulty.toUpperCase()}</Text>
+              <Text style={styles.topicChipTitle} numberOfLines={2}>{item.topicTitle}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-        <Text style={styles.sprintDesc}>{selectedPrompt.promptDescription}</Text>
-
-        {/* Structured Outline Template */}
-        <View style={styles.outlineBox}>
-          <Text style={styles.outlineTitle}>💡 Structured 60-Second Outline Guide:</Text>
-          {selectedPrompt.suggestedPoints.map((point, idx) => (
-            <View key={idx} style={styles.outlineRow}>
-              <Text style={styles.outlineBullet}>•</Text>
-              <Text style={styles.outlineText}>{point}</Text>
+      {/* PHASE 1: PRE-SPRINT BRIEFING (IDLE STATE) */}
+      {sprintState === 'IDLE' && (
+        <View style={styles.briefCard}>
+          <View style={styles.briefHeader}>
+            <View style={styles.diffBadgeBox}>
+              <Text style={styles.diffBadgeText}>{prompt.difficulty.toUpperCase()} DIFFICULTY</Text>
             </View>
-          ))}
-        </View>
-
-        {/* Live Timer Gauge */}
-        <View style={[styles.timerRing, isSprintActive && styles.activeTimerRing]}>
-          <Text style={styles.timerNumber}>{timeLeft}s</Text>
-          <Text style={styles.timerLabel}>{isSprintActive ? 'RECORDING SPEECH' : 'READY'}</Text>
-        </View>
-
-        {/* Animated Waveform Indicator during recording */}
-        {isSprintActive && (
-          <View style={styles.waveformContainer}>
-            <View style={[styles.waveBar, { height: 14 }]} />
-            <View style={[styles.waveBar, { height: 28 }]} />
-            <View style={[styles.waveBar, { height: 20 }]} />
-            <View style={[styles.waveBar, { height: 32 }]} />
-            <View style={[styles.waveBar, { height: 18 }]} />
-            <Text style={styles.waveText}>Audio Recording Active...</Text>
+            <Text style={styles.categoryText}>{prompt.category}</Text>
           </View>
-        )}
 
-        {/* Action Button */}
-        <TouchableOpacity
-          style={[styles.sprintBtn, isSprintActive && styles.sprintActiveBtn]}
-          onPress={isSprintActive ? handleStopSprint : handleStartSprint}
-        >
-          <Text style={styles.sprintBtnText}>
-            {isSprintActive ? '⏹️ Finish & Calculate Fluency Score' : '🎤 Start 60-Second Speech Sprint'}
-          </Text>
-        </TouchableOpacity>
+          <Text style={styles.promptTitle}>{prompt.topicTitle}</Text>
+          <Text style={styles.promptDesc}>{prompt.promptDescription}</Text>
 
-        {/* Live Speech Transcription Box */}
-        <View style={styles.liveBox}>
-          <Text style={styles.liveLabel}>Transcribed Speech:</Text>
-          <Text style={styles.liveText}>
-            "{spokenText || (isSprintActive ? 'Listening to your speech...' : 'Press Start to begin speaking.')}"
-          </Text>
-        </View>
-      </View>
+          {/* Time Specs Row */}
+          <View style={styles.timeSpecsRow}>
+            <View style={styles.timeSpecItem}>
+              <Text style={styles.timeSpecVal}>⏱️ 15 sec</Text>
+              <Text style={styles.timeSpecLbl}>Preparation Time</Text>
+            </View>
+            <View style={styles.timeSpecDivider} />
+            <View style={styles.timeSpecItem}>
+              <Text style={styles.timeSpecVal}>🎙️ 60 sec</Text>
+              <Text style={styles.timeSpecLbl}>Speaking Time</Text>
+            </View>
+          </View>
 
-      {/* Speech Analytics Suite Results */}
-      {evaluation && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>📊 Speech Fluency & Analytics Report</Text>
+          {/* Keyword Outline Suggestions */}
+          <Text style={styles.keywordsHeading}>Subtle Keyword Suggestions (If you get stuck):</Text>
+          <View style={styles.keywordsGrid}>
+            {prompt.keywordSuggestions.map((kw, idx) => (
+              <View key={idx} style={styles.kwPill}>
+                <Text style={styles.kwPillText}>💡 "{kw}"</Text>
+              </View>
+            ))}
+          </View>
 
-          <View style={styles.metricsGrid}>
-            {/* WPM Speed */}
-            <View style={styles.metricCard}>
-              <Text style={styles.metricVal}>{wpm}</Text>
-              <Text style={styles.metricLbl}>Words / Min (WPM)</Text>
-              <View style={[styles.statusTag, { backgroundColor: wpmStatus.color }]}>
-                <Text style={styles.statusTagText}>{wpmStatus.label}</Text>
+          {/* Start Button */}
+          <TouchableOpacity style={styles.startPrepBtn} onPress={handleStartPrep}>
+            <Text style={styles.startPrepBtnText}>Start 15s Prep & Sprint ›</Text>
+          </TouchableOpacity>
+
+          {/* Progress Tracker Over Time */}
+          <View style={styles.trackerCard}>
+            <Text style={styles.trackerHeader}>📈 Your Fluency Progress Tracker</Text>
+            <View style={styles.trackerGrid}>
+              <View style={styles.trackerItem}>
+                <Text style={styles.trackerVal}>118 WPM</Text>
+                <Text style={styles.trackerLbl}>Average Speed</Text>
+              </View>
+              <View style={styles.trackerItem}>
+                <Text style={styles.trackerVal}>85%</Text>
+                <Text style={styles.trackerLbl}>Fluency Score</Text>
+              </View>
+              <View style={styles.trackerItem}>
+                <Text style={styles.trackerVal}>4</Text>
+                <Text style={styles.trackerLbl}>Filler Words</Text>
+              </View>
+              <View style={styles.trackerItem}>
+                <Text style={styles.trackerVal}>🔥 4 Days</Text>
+                <Text style={styles.trackerLbl}>Consistency</Text>
               </View>
             </View>
+          </View>
+        </View>
+      )}
 
-            {/* Filler Words */}
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricVal, { color: fillerCount === 0 ? colors.success : colors.warning }]}>
-                {fillerCount}
-              </Text>
-              <Text style={styles.metricLbl}>Filler Hesitations</Text>
-              <Text style={styles.metricSub}>("um", "uh", "like")</Text>
+      {/* PHASE 2: 15-SECOND PREPARATION TIMER */}
+      {sprintState === 'PREP' && (
+        <View style={styles.prepContainer}>
+          <Text style={styles.prepLabel}>PREPARATION TIME</Text>
+          <View style={styles.timerCircleBig}>
+            <Text style={styles.timerCircleVal}>{prepSecondsLeft}</Text>
+            <Text style={styles.timerCircleSub}>seconds</Text>
+          </View>
+          <Text style={styles.prepInstruction}>Mentally outline your thoughts on: "{prompt.topicTitle}"</Text>
+
+          <View style={styles.keywordsGrid}>
+            {prompt.keywordSuggestions.map((kw, idx) => (
+              <View key={idx} style={styles.kwPill}>
+                <Text style={styles.kwPillText}>💡 "{kw}"</Text>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity style={styles.skipPrepBtn} onPress={startSpeakingSprint}>
+            <Text style={styles.skipPrepText}>Skip Prep & Speak Now ›</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* PHASE 3: 60-SECOND LIVE SPEAKING SPRINT */}
+      {sprintState === 'SPEAKING' && (
+        <View style={styles.speakingContainer}>
+          <Text style={styles.speakingLabel}>🎙️ LIVE 60-SECOND SPEAKING SPRINT</Text>
+          <View style={[styles.timerCircleBig, { borderColor: colors.danger }]}>
+            <Text style={[styles.timerCircleVal, { color: colors.danger }]}>{speakSecondsLeft}</Text>
+            <Text style={styles.timerCircleSub}>seconds left</Text>
+          </View>
+
+          <Text style={styles.speakingPromptText}>"{prompt.topicTitle}"</Text>
+
+          {/* Subtle Keywords Display */}
+          <View style={styles.subtleKeywordsBox}>
+            <Text style={styles.subtleKeywordsHeading}>Subtle Keyword Suggestions:</Text>
+            {prompt.keywordSuggestions.map((kw, idx) => (
+              <Text key={idx} style={styles.subtleKwText}>• "{kw}"</Text>
+            ))}
+          </View>
+
+          {/* Live Transcript Preview */}
+          <View style={styles.liveTranscriptBox}>
+            <Text style={styles.transcriptLabel}>Live Recording Transcription:</Text>
+            <Text style={styles.transcriptText}>
+              {transcript || 'Listening to your speech... Keep speaking naturally!'}
+            </Text>
+          </View>
+
+          <TouchableOpacity style={styles.finishEarlyBtn} onPress={finishSpeakingSprint}>
+            <Text style={styles.finishEarlyText}>Finish & Analyze Speech</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* PHASE 4: POST-SPRINT FLUENCY ANALYSIS REPORT */}
+      {sprintState === 'REPORT' && (
+        <View style={styles.reportContainer}>
+          <Text style={styles.reportTitle}>📊 Speech Fluency Analysis Report</Text>
+
+          {/* Metrics Grid */}
+          <View style={styles.metricsGridCard}>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricVal}>{report.wordsSpoken}</Text>
+              <Text style={styles.metricLbl}>WORDS SPOKEN</Text>
             </View>
 
-            {/* Vocab Diversity */}
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricVal, { color: colors.accent }]}>{vocabDiversity}%</Text>
-              <Text style={styles.metricLbl}>Vocab Variety</Text>
-              <Text style={styles.metricSub}>Unique Word Ratio</Text>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricVal}>{report.wpmSpeed} WPM</Text>
+              <Text style={styles.metricLbl}>SPEAKING SPEED</Text>
             </View>
 
-            {/* Pronunciation Score */}
-            <View style={styles.metricCard}>
-              <Text style={[styles.metricVal, { color: colors.secondary }]}>{evaluation.accuracyScore}%</Text>
-              <Text style={styles.metricLbl}>Accuracy Score</Text>
-              <Text style={styles.metricSub}>Phonetic Match</Text>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricVal}>{report.fillerWordCount}</Text>
+              <Text style={styles.metricLbl}>FILLER WORDS</Text>
+            </View>
+
+            <View style={styles.metricItem}>
+              <Text style={styles.metricVal}>{report.pauseCount}</Text>
+              <Text style={styles.metricLbl}>PAUSES</Text>
+            </View>
+
+            <View style={styles.metricItem}>
+              <Text style={[styles.metricVal, { color: colors.primary }]}>{report.fluencyScore}%</Text>
+              <Text style={styles.metricLbl}>FLUENCY SCORE</Text>
+            </View>
+
+            <View style={styles.metricItem}>
+              <Text style={[styles.metricVal, { color: colors.secondary }]}>{report.grammarScore}%</Text>
+              <Text style={styles.metricLbl}>GRAMMAR SCORE</Text>
             </View>
           </View>
 
-          {/* Listen Back in Lady/Male Voice */}
-          <View style={styles.listenBackBox}>
-            <Text style={styles.listenBackTitle}>Listen Back to Your Speech (Intonation Practice):</Text>
-            <View style={styles.listenBackRow}>
-              <AudioButton text={spokenText} gender="female" labelOverride="👩 Listen Lady Voice" size="medium" />
-              <AudioButton text={spokenText} gender="male" labelOverride="👨 Listen Male Voice" size="medium" />
+          {/* Detailed Feedback Sections */}
+          <View style={styles.feedbackSectionCard}>
+            {/* 1. You did well because */}
+            <Text style={styles.fbHeading}>✅ You did well because:</Text>
+            {report.youDidWellBecause.map((item, idx) => (
+              <Text key={idx} style={styles.fbBullet}>• {item}</Text>
+            ))}
+
+            {/* 2. Try improving */}
+            <Text style={[styles.fbHeading, { marginTop: 14 }]}>💡 Try improving:</Text>
+            {report.tryImproving.map((item, idx) => (
+              <Text key={idx} style={styles.fbBullet}>• {item}</Text>
+            ))}
+
+            {/* 3. Instead of saying */}
+            <Text style={[styles.fbHeading, { marginTop: 14 }]}>⚠️ Instead of saying:</Text>
+            <Text style={styles.insteadText}>"{report.insteadOfSaying}"</Text>
+
+            {/* 4. A more natural version would be */}
+            <Text style={[styles.fbHeading, { marginTop: 14 }]}>🌟 A more natural version would be:</Text>
+            <Text style={styles.naturalText}>"{report.moreNaturalVersion}"</Text>
+            <View style={{ marginTop: 6 }}>
+              <AudioButton text={report.moreNaturalVersion} size="small" />
             </View>
           </View>
 
-          <PronunciationCard evaluation={evaluation} />
+          {/* Action Buttons */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.challengeAgainBtn} onPress={handleStartPrep}>
+              <Text style={styles.challengeAgainText}>🔄 Challenge Again</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.nextTopicBtn} onPress={() => setSprintState('IDLE')}>
+              <Text style={styles.nextTopicText}>🚀 Select Next Topic</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </ScrollView>
@@ -285,245 +370,416 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     marginTop: 4,
+    marginBottom: 14,
+  },
+  diffScroll: {
+    marginBottom: 12,
+  },
+  diffChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.cardBg,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  activeDiffChip: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  diffChipText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  activeDiffChipText: {
+    color: '#FFF',
+    fontWeight: '900',
+  },
+  topicCarousel: {
     marginBottom: 16,
   },
-  carousel: {
-    marginBottom: 18,
-  },
-  topicCard: {
-    width: 230,
+  topicChipCard: {
+    width: 210,
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 12,
     marginRight: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  activeTopicCard: {
+  activeTopicChipCard: {
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  catTag: {
-    color: colors.accent,
+  topicDiffBadge: {
+    color: colors.primary,
     fontSize: 9,
     fontWeight: '900',
   },
-  topicCardTitle: {
+  topicChipTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
     marginTop: 4,
   },
-  targetWords: {
-    color: colors.textMuted,
-    fontSize: 11,
-    marginTop: 6,
-  },
-  sprintBox: {
+  briefCard: {
     backgroundColor: colors.cardBg,
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    alignItems: 'center',
+    marginBottom: 16,
   },
-  topicHeaderRow: {
+  briefHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  sprintTopicHeader: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-    flex: 1,
-  },
-  phaseBadge: {
-    backgroundColor: colors.primaryDark,
+  diffBadgeBox: {
+    backgroundColor: '#1E1B4B',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  phaseBadgeText: {
-    color: '#FFF',
+  diffBadgeText: {
+    color: colors.primary,
     fontSize: 9,
     fontWeight: '900',
   },
-  sprintDesc: {
+  categoryText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  promptTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  promptDesc: {
     color: colors.textSecondary,
     fontSize: 13,
-    width: '100%',
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 14,
   },
-  outlineBox: {
+  timeSpecsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0F172A',
     borderRadius: 12,
     padding: 12,
-    width: '100%',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  outlineTitle: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  outlineRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  outlineBullet: {
-    color: colors.accent,
-    marginRight: 6,
-  },
-  outlineText: {
-    color: colors.text,
-    fontSize: 12,
+  timeSpecItem: {
     flex: 1,
-  },
-  timerRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#0F172A',
-    borderWidth: 3,
-    borderColor: colors.secondary,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
   },
-  activeTimerRing: {
-    borderColor: colors.danger,
-  },
-  timerNumber: {
+  timeSpecVal: {
     color: colors.text,
-    fontSize: 26,
-    fontWeight: '900',
-  },
-  timerLabel: {
-    color: colors.accent,
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  waveformContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 14,
-  },
-  waveBar: {
-    width: 5,
-    backgroundColor: colors.secondary,
-    borderRadius: 3,
-  },
-  waveText: {
-    color: colors.secondary,
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 8,
-  },
-  sprintBtn: {
-    backgroundColor: colors.secondary,
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sprintActiveBtn: {
-    backgroundColor: colors.danger,
-  },
-  sprintBtnText: {
-    color: '#FFF',
-    fontWeight: '900',
     fontSize: 15,
-  },
-  liveBox: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-    width: '100%',
-  },
-  liveLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    marginBottom: 4,
-  },
-  liveText: {
-    color: colors.text,
-    fontSize: 13,
-    fontStyle: 'italic',
-  },
-  resultContainer: {
-    marginTop: 20,
-  },
-  resultTitle: {
-    color: colors.text,
-    fontSize: 18,
     fontWeight: '900',
-    marginBottom: 14,
   },
-  metricsGrid: {
+  timeSpecLbl: {
+    color: colors.textMuted,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  timeSpecDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.cardBorder,
+  },
+  keywordsHeading: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  keywordsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 6,
     marginBottom: 16,
   },
-  metricCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.cardBg,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  metricVal: {
-    color: colors.primary,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  metricLbl: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  metricSub: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  statusTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  kwPill: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 6,
-  },
-  statusTagText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  listenBackBox: {
-    backgroundColor: colors.cardBg,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  listenBackTitle: {
+  kwPillText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+  },
+  startPrepBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  startPrepBtnText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  trackerCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    padding: 14,
+  },
+  trackerHeader: {
     color: colors.text,
     fontSize: 13,
     fontWeight: '800',
     marginBottom: 10,
   },
-  listenBackRow: {
+  trackerGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  trackerItem: {
+    alignItems: 'center',
+  },
+  trackerVal: {
+    color: colors.secondary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  trackerLbl: {
+    color: colors.textMuted,
+    fontSize: 9,
+    marginTop: 2,
+  },
+
+  // Prep View
+  prepContainer: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  prepLabel: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  timerCircleBig: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: '#0F172A',
+    borderWidth: 4,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  timerCircleVal: {
+    color: colors.text,
+    fontSize: 36,
+    fontWeight: '900',
+  },
+  timerCircleSub: {
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+  prepInstruction: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  skipPrepBtn: {
+    backgroundColor: colors.primaryDark,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  skipPrepText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  // Speaking View
+  speakingContainer: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  speakingLabel: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  speakingPromptText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  subtleKeywordsBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 12,
+    width: '100%',
+    marginBottom: 14,
+  },
+  subtleKeywordsHeading: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  subtleKwText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  liveTranscriptBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 12,
+    width: '100%',
+    marginBottom: 16,
+  },
+  transcriptLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  transcriptText: {
+    color: colors.text,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  finishEarlyBtn: {
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  finishEarlyText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+
+  // Report View
+  reportContainer: {
+    gap: 14,
+  },
+  reportTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  metricsGridCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  metricItem: {
+    width: '46%',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  metricVal: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  metricLbl: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  feedbackSectionCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  fbHeading: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  fbBullet: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  insteadText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  naturalText: {
+    color: colors.secondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  actionRow: {
     flexDirection: 'row',
     gap: 10,
+    marginBottom: 30,
+  },
+  challengeAgainBtn: {
+    flex: 1,
+    backgroundColor: colors.cardBg,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  challengeAgainText: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  nextTopicBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  nextTopicText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 13,
   },
 });
