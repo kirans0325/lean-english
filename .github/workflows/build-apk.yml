@@ -1,0 +1,50 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Standalone Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: ☕ Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 📦 Install Node Dependencies
+        run: npm install
+
+      - name: 🚀 Expo Prebuild (Generate Native Android Project)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: 🛠️ Grant Execute Permission for Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: ⚙️ Build Android Release APK with Gradle
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+
+      - name: 📤 Upload Downloadable APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FluentAI-English-App-Release-APK
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
