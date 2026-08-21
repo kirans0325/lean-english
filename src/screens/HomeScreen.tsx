@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,19 @@ import {
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useProgress } from '../context/ProgressContext';
-import { LearningPhase } from '../types';
+import { todayDailyPlan } from '../data/dailyPlanData';
+import { DailyPlanModal } from '../components/DailyPlanModal';
 
 interface HomeScreenProps {
   onNavigate: (screen: string, params?: any) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
-  const { user, setPhase } = useAuth();
-  const { xpPoints, streakDays, completedLessons, spokenHistory } = useProgress();
+  const { user } = useAuth();
+  const { xpPoints, streakDays, completedLessons } = useProgress();
+  const [showDailyPlanModal, setShowDailyPlanModal] = useState<boolean>(false);
+
+  const plan = todayDailyPlan;
 
   const daysOfWeek = [
     { day: 'Mon', done: true },
@@ -29,81 +33,72 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
     { day: 'Sun', done: false },
   ];
 
-  const phaseCards: { phase: LearningPhase; title: string; desc: string; icon: string; color: string }[] = [
-    {
-      phase: 'basics',
-      title: 'Basics Phase',
-      desc: 'Phonetics, 1000 essential words, greetings & core grammar.',
-      icon: '🌱',
-      color: colors.basics,
-    },
-    {
-      phase: 'intermediate',
-      title: 'Intermediate Phase',
-      desc: 'Idioms, phrasal verbs, complex sentence fluency & stories.',
-      icon: '🚀',
-      color: colors.intermediate,
-    },
-    {
-      phase: 'advanced',
-      title: 'Advanced Phase',
-      desc: 'Rhetoric, literature breakdowns, debate & formal speeches.',
-      icon: '🎓',
-      color: colors.advanced,
-    },
-    {
-      phase: 'business',
-      title: 'Business English',
-      desc: 'Corporate emails, job interviews, meetings & negotiations.',
-      icon: '💼',
-      color: colors.business,
-    },
-  ];
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* 🎯 TODAY'S GOAL FEATURED CARD */}
-      <View style={styles.goalCard}>
-        <View style={styles.goalTopRow}>
-          <View style={styles.goalTitleGroup}>
-            <View style={styles.goalIconBadge}>
-              <Text style={styles.goalIconText}>🎯</Text>
-            </View>
-            <View>
-              <Text style={styles.goalTitle}>Today's Goal</Text>
-              <Text style={styles.goalSubtitle}>15 mins of learning</Text>
-            </View>
+      {/* 🌟 COACH SPOTLIGHT: TODAY'S ENGLISH PLAN */}
+      <View style={styles.dailyPlanSpotlightCard}>
+        <View style={styles.coachHeaderRow}>
+          <View style={styles.coachBadgeGroup}>
+            <Text style={styles.coachEmoji}>🎯</Text>
+            <Text style={styles.coachTitleTag}>PERSONAL COACH GUIDED PLAN</Text>
           </View>
-
-          {/* Right Circular Goal Ring */}
-          <View style={styles.goalRing}>
-            <Text style={styles.goalRingText}>🔥 {streakDays}</Text>
-            <Text style={styles.goalRingSub}>Days</Text>
+          <View style={styles.timeBadge}>
+            <Text style={styles.timeBadgeText}>⏱️ {plan.estimatedTimeMins} mins</Text>
           </View>
         </View>
 
-        {/* Linear Progress Bar */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarTrack}>
-            <View style={[styles.progressBarFill, { width: '80%' }]} />
-          </View>
-          <Text style={styles.progressCountText}>12 / 15 mins</Text>
+        <Text style={styles.todayFocusHeading}>Today's Focus: {plan.todayFocus}</Text>
+        <Text style={styles.whyDoItText}>💡 Why do this: {plan.whyDoIt}</Text>
+
+        <View style={styles.skillBox}>
+          <Text style={styles.skillBoxText}>🚀 Skill Improving: {plan.skillImproved}</Text>
         </View>
 
-        {/* Continue Learning CTA Button */}
+        {/* 5-Step Guided Learning Pathway Preview */}
+        <View style={styles.stepPathwayBox}>
+          <Text style={styles.pathwayHeading}>5-Step Daily Learning Journey:</Text>
+          <View style={styles.pathwayStepsRow}>
+            <View style={styles.pathStep}>
+              <Text style={styles.pathNum}>1</Text>
+              <Text style={styles.pathLbl}>Warm-up</Text>
+            </View>
+            <Text style={styles.pathArrow}>›</Text>
+            <View style={styles.pathStep}>
+              <Text style={styles.pathNum}>2</Text>
+              <Text style={styles.pathLbl}>Learn</Text>
+            </View>
+            <Text style={styles.pathArrow}>›</Text>
+            <View style={styles.pathStep}>
+              <Text style={styles.pathNum}>3</Text>
+              <Text style={styles.pathLbl}>Practice</Text>
+            </View>
+            <Text style={styles.pathArrow}>›</Text>
+            <View style={styles.pathStep}>
+              <Text style={styles.pathNum}>4</Text>
+              <Text style={styles.pathLbl}>Speak</Text>
+            </View>
+            <Text style={styles.pathArrow}>›</Text>
+            <View style={styles.pathStep}>
+              <Text style={styles.pathNum}>5</Text>
+              <Text style={styles.pathLbl}>Feedback</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Primary CTA */}
         <TouchableOpacity
-          style={styles.continueBtn}
-          onPress={() => onNavigate('PhaseLessons', { phase: user?.phase })}
+          style={styles.primaryPlanCta}
+          onPress={() => setShowDailyPlanModal(true)}
         >
-          <Text style={styles.continueBtnText}>Continue Learning</Text>
-          <Text style={styles.continueBtnArrow}>›</Text>
+          <Text style={styles.primaryPlanCtaText}>Start Today's 10-Minute Practice</Text>
+          <Text style={styles.primaryPlanCtaArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
       {/* 📅 THIS WEEK HABIT CALENDAR */}
       <View style={styles.weekCard}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>This Week</Text>
+          <Text style={styles.sectionHeaderTitle}>This Week's Consistency</Text>
           <Text style={styles.sectionHeaderRight}>4 / 7 Days</Text>
         </View>
 
@@ -129,202 +124,116 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigate }) => {
         </View>
       </View>
 
-      {/* 🚀 QUICK START INTERACTIVE MODULES */}
-      <View style={styles.quickSection}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>Quick Start</Text>
-          <TouchableOpacity onPress={() => onNavigate('PhaseLessons')}>
-            <Text style={styles.sectionHeaderLink}>See All ›</Text>
-          </TouchableOpacity>
-        </View>
+      {/* 🧰 COMPACT SECONDARY MODULES: PRACTICE MORE */}
+      <View style={styles.practiceMoreSection}>
+        <Text style={styles.sectionHeaderTitle}>Practice More</Text>
+        <Text style={styles.sectionSubTitle}>Target specific English skills with specialized interactive tools.</Text>
 
-        {/* 1. Daily Roleplay */}
-        <TouchableOpacity
-          style={[styles.quickCardItem, { backgroundColor: '#1E1B4B' }]}
-          onPress={() => onNavigate('DailyConversation')}
-        >
-          <View style={styles.quickCardLeft}>
-            <View style={[styles.quickIconCircle, { backgroundColor: colors.primary }]}>
-              <Text style={styles.quickIconEmoji}>🗣️</Text>
-            </View>
-            <View style={styles.quickTextGroup}>
-              <Text style={styles.quickTitleText}>Daily Roleplay</Text>
-              <Text style={styles.quickSubText}>Turn-by-turn conversation practice</Text>
-            </View>
-          </View>
+        <View style={styles.compactGrid}>
+          {/* Daily Roleplay */}
           <TouchableOpacity
-            style={[styles.startPillBtn, { backgroundColor: colors.primary }]}
+            style={[styles.compactCard, { backgroundColor: '#1E1B4B' }]}
             onPress={() => onNavigate('DailyConversation')}
           >
-            <Text style={styles.startPillText}>Start</Text>
-            <Text style={styles.startPillArrow}>›</Text>
+            <View style={[styles.compactIconBg, { backgroundColor: colors.primary }]}>
+              <Text style={styles.compactIconEmoji}>🗣️</Text>
+            </View>
+            <View style={styles.compactInfo}>
+              <Text style={styles.compactTitle}>Daily Roleplay</Text>
+              <Text style={styles.compactSub}>Turn-by-turn conversation practice</Text>
+            </View>
+            <View style={[styles.compactPill, { backgroundColor: colors.primary }]}>
+              <Text style={styles.compactPillText}>Start ›</Text>
+            </View>
           </TouchableOpacity>
-        </TouchableOpacity>
 
-        {/* 2. Read & Practice Stories */}
-        <TouchableOpacity
-          style={[styles.quickCardItem, { backgroundColor: '#31122B' }]}
-          onPress={() => onNavigate('Stories')}
-        >
-          <View style={styles.quickCardLeft}>
-            <View style={[styles.quickIconCircle, { backgroundColor: colors.pink }]}>
-              <Text style={styles.quickIconEmoji}>📖</Text>
-            </View>
-            <View style={styles.quickTextGroup}>
-              <Text style={styles.quickTitleText}>Read & Practice Stories</Text>
-              <Text style={styles.quickSubText}>Improve vocabulary with interesting stories</Text>
-            </View>
-          </View>
+          {/* Stories */}
           <TouchableOpacity
-            style={[styles.startPillBtn, { backgroundColor: colors.pink }]}
+            style={[styles.compactCard, { backgroundColor: '#31122B' }]}
             onPress={() => onNavigate('Stories')}
           >
-            <Text style={styles.startPillText}>Start</Text>
-            <Text style={styles.startPillArrow}>›</Text>
+            <View style={[styles.compactIconBg, { backgroundColor: colors.pink }]}>
+              <Text style={styles.compactIconEmoji}>📖</Text>
+            </View>
+            <View style={styles.compactInfo}>
+              <Text style={styles.compactTitle}>Stories</Text>
+              <Text style={styles.compactSub}>Read & practice with audio narrators</Text>
+            </View>
+            <View style={[styles.compactPill, { backgroundColor: colors.pink }]}>
+              <Text style={styles.compactPillText}>Start ›</Text>
+            </View>
           </TouchableOpacity>
-        </TouchableOpacity>
 
-        {/* 3. 1-Minute Speech Sprint */}
-        <TouchableOpacity
-          style={[styles.quickCardItem, { backgroundColor: '#20163A' }]}
-          onPress={() => onNavigate('OneMinuteSprint')}
-        >
-          <View style={styles.quickCardLeft}>
-            <View style={[styles.quickIconCircle, { backgroundColor: '#8B5CF6' }]}>
-              <Text style={styles.quickIconEmoji}>⏱️</Text>
-            </View>
-            <View style={styles.quickTextGroup}>
-              <Text style={styles.quickTitleText}>1-Minute Speech Sprint</Text>
-              <Text style={styles.quickSubText}>60-second speaking challenge & WPM fluency rate</Text>
-            </View>
-          </View>
+          {/* Speech Sprint */}
           <TouchableOpacity
-            style={[styles.startPillBtn, { backgroundColor: '#8B5CF6' }]}
+            style={[styles.compactCard, { backgroundColor: '#20163A' }]}
             onPress={() => onNavigate('OneMinuteSprint')}
           >
-            <Text style={styles.startPillText}>Start</Text>
-            <Text style={styles.startPillArrow}>›</Text>
+            <View style={[styles.compactIconBg, { backgroundColor: '#8B5CF6' }]}>
+              <Text style={styles.compactIconEmoji}>⏱️</Text>
+            </View>
+            <View style={styles.compactInfo}>
+              <Text style={styles.compactTitle}>Speech Sprint</Text>
+              <Text style={styles.compactSub}>60-second speaking challenge & WPM</Text>
+            </View>
+            <View style={[styles.compactPill, { backgroundColor: '#8B5CF6' }]}>
+              <Text style={styles.compactPillText}>Start ›</Text>
+            </View>
           </TouchableOpacity>
-        </TouchableOpacity>
 
-        {/* 4. Pronunciation Checker Lab */}
-        <TouchableOpacity
-          style={[styles.quickCardItem, { backgroundColor: '#062C28' }]}
-          onPress={() => onNavigate('SpeakingLab')}
-        >
-          <View style={styles.quickCardLeft}>
-            <View style={[styles.quickIconCircle, { backgroundColor: colors.teal }]}>
-              <Text style={styles.quickIconEmoji}>🎙️</Text>
-            </View>
-            <View style={styles.quickTextGroup}>
-              <Text style={styles.quickTitleText}>Pronunciation Checker Lab</Text>
-              <Text style={styles.quickSubText}>Perfect your pronunciation with AI feedback</Text>
-            </View>
-          </View>
+          {/* Pronunciation Lab */}
           <TouchableOpacity
-            style={[styles.startPillBtn, { backgroundColor: colors.teal }]}
+            style={[styles.compactCard, { backgroundColor: '#062C28' }]}
             onPress={() => onNavigate('SpeakingLab')}
           >
-            <Text style={styles.startPillText}>Start</Text>
-            <Text style={styles.startPillArrow}>›</Text>
+            <View style={[styles.compactIconBg, { backgroundColor: colors.teal }]}>
+              <Text style={styles.compactIconEmoji}>🎙️</Text>
+            </View>
+            <View style={styles.compactInfo}>
+              <Text style={styles.compactTitle}>Pronunciation Lab</Text>
+              <Text style={styles.compactSub}>Real-time AI voice accuracy scoring</Text>
+            </View>
+            <View style={[styles.compactPill, { backgroundColor: colors.teal }]}>
+              <Text style={styles.compactPillText}>Start ›</Text>
+            </View>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       </View>
 
-      {/* 📊 WEEKLY PROGRESS ANALYTICS GRID */}
+      {/* 📊 WEEKLY PROGRESS METRICS SUMMARY */}
       <View style={styles.progressSection}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeaderTitle}>Weekly Progress</Text>
+          <Text style={styles.sectionHeaderTitle}>Weekly Progress Summary</Text>
           <TouchableOpacity onPress={() => onNavigate('Profile')}>
             <Text style={styles.sectionHeaderLink}>View Details ›</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.metricsGrid}>
-          {/* Metric 1 */}
           <View style={styles.metricCardBox}>
-            <View style={styles.metricHeaderRow}>
-              <View style={[styles.miniIconBg, { backgroundColor: colors.primary }]}>
-                <Text style={styles.miniIconEmoji}>📚</Text>
-              </View>
-              <Text style={styles.metricBigVal}>{completedLessons.length || 24}</Text>
-            </View>
+            <Text style={styles.metricBigVal}>{completedLessons.length || 24}</Text>
             <Text style={styles.metricLabel}>Lessons Completed</Text>
-            <Text style={styles.metricTrend}>↑ 12 this week</Text>
           </View>
-
-          {/* Metric 2 */}
           <View style={styles.metricCardBox}>
-            <View style={styles.metricHeaderRow}>
-              <View style={[styles.miniIconBg, { backgroundColor: '#0EA5E9' }]}>
-                <Text style={styles.miniIconEmoji}>⏱️</Text>
-              </View>
-              <Text style={styles.metricBigVal}>3h 45m</Text>
-            </View>
+            <Text style={styles.metricBigVal}>3h 45m</Text>
             <Text style={styles.metricLabel}>Speaking Time</Text>
-            <Text style={styles.metricTrend}>↑ 45m this week</Text>
           </View>
-
-          {/* Metric 3 */}
           <View style={styles.metricCardBox}>
-            <View style={styles.metricHeaderRow}>
-              <View style={[styles.miniIconBg, { backgroundColor: colors.pink }]}>
-                <Text style={styles.miniIconEmoji}>📖</Text>
-              </View>
-              <Text style={styles.metricBigVal}>8</Text>
-            </View>
+            <Text style={styles.metricBigVal}>8</Text>
             <Text style={styles.metricLabel}>Stories Read</Text>
-            <Text style={styles.metricTrend}>↑ 3 this week</Text>
           </View>
-
-          {/* Metric 4 */}
           <View style={styles.metricCardBox}>
-            <View style={styles.metricHeaderRow}>
-              <View style={[styles.miniIconBg, { backgroundColor: colors.accent }]}>
-                <Text style={styles.miniIconEmoji}>🎯</Text>
-              </View>
-              <Text style={styles.metricBigVal}>87%</Text>
-            </View>
+            <Text style={styles.metricBigVal}>87%</Text>
             <Text style={styles.metricLabel}>Accuracy Rate</Text>
-            <Text style={styles.metricTrend}>↑ 5% this week</Text>
           </View>
         </View>
       </View>
 
-      {/* 🎓 CHOOSE LEARNING PHASE CARDS */}
-      <Text style={styles.sectionHeaderTitle}>Select Curriculum Phase</Text>
-      {phaseCards.map((card) => {
-        const isActive = user?.phase === card.phase;
-        return (
-          <TouchableOpacity
-            key={card.phase}
-            style={[
-              styles.phaseCard,
-              { borderColor: card.color },
-              isActive && { backgroundColor: '#1E293B', borderWidth: 2 },
-            ]}
-            onPress={() => {
-              setPhase(card.phase);
-              onNavigate('PhaseLessons', { phase: card.phase });
-            }}
-          >
-            <View style={[styles.phaseIconBg, { backgroundColor: card.color }]}>
-              <Text style={styles.phaseIconText}>{card.icon}</Text>
-            </View>
-            <View style={styles.phaseInfo}>
-              <View style={styles.phaseHeaderRow}>
-                <Text style={styles.phaseTitle}>{card.title}</Text>
-                {isActive && (
-                  <View style={[styles.activeBadge, { backgroundColor: card.color }]}>
-                    <Text style={styles.activeBadgeText}>ACTIVE</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.phaseDesc}>{card.desc}</Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+      {/* Daily Plan Interactive Modal */}
+      <DailyPlanModal
+        visible={showDailyPlanModal}
+        onClose={() => setShowDailyPlanModal(false)}
+      />
     </ScrollView>
   );
 };
@@ -335,117 +244,138 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  // Today's Goal Card
-  goalCard: {
+  // Daily Plan Spotlight Card
+  dailyPlanSpotlightCard: {
     backgroundColor: colors.cardBg,
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: 16,
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginBottom: 18,
   },
-  goalTopRow: {
+  coachHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  coachBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  coachEmoji: {
+    fontSize: 16,
+  },
+  coachTitleTag: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  timeBadge: {
+    backgroundColor: '#1E1B4B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  timeBadgeText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  todayFocusHeading: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  whyDoItText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  skillBox: {
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 14,
   },
-  goalTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  goalIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalIconText: {
-    fontSize: 20,
-  },
-  goalTitle: {
-    color: colors.text,
-    fontSize: 16,
+  skillBoxText: {
+    color: colors.secondary,
+    fontSize: 12,
     fontWeight: '800',
   },
-  goalSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  goalRing: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  stepPathwayBox: {
     backgroundColor: '#0F172A',
-    borderWidth: 2,
-    borderColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalRingText: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  goalRingSub: {
-    color: colors.textMuted,
-    fontSize: 9,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 16,
   },
-  progressBarTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#0F172A',
-    borderRadius: 4,
-    overflow: 'hidden',
+  pathwayHeading: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
-  },
-  progressCountText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  continueBtn: {
-    backgroundColor: colors.primaryDark,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
+  pathwayStepsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  continueBtnText: {
-    color: '#FFF',
-    fontWeight: '800',
-    fontSize: 15,
+  pathStep: {
+    alignItems: 'center',
   },
-  continueBtnArrow: {
+  pathNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primaryDark,
     color: '#FFF',
-    fontSize: 18,
+    textAlign: 'center',
+    lineHeight: 24,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pathLbl: {
+    color: colors.textSecondary,
+    fontSize: 9,
+    marginTop: 2,
+  },
+  pathArrow: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+  primaryPlanCta: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  primaryPlanCtaText: {
+    color: '#FFF',
+    fontWeight: '900',
+    fontSize: 16,
+  },
+  primaryPlanCtaArrow: {
+    color: '#FFF',
+    fontSize: 20,
     fontWeight: '900',
   },
 
-  // This Week Activity Tracker
+  // Week Habit Card
   weekCard: {
     backgroundColor: colors.cardBg,
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    marginBottom: 16,
+    marginBottom: 18,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -482,9 +412,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   dayCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: colors.cardBorder,
     alignItems: 'center',
@@ -501,76 +431,70 @@ const styles = StyleSheet.create({
   checkText: {
     color: '#FFF',
     fontWeight: '900',
-    fontSize: 13,
+    fontSize: 12,
   },
   flameText: {
-    fontSize: 14,
+    fontSize: 13,
   },
 
-  // Quick Start Section
-  quickSection: {
+  // Practice More Section
+  practiceMoreSection: {
     marginBottom: 18,
   },
-  quickCardItem: {
-    borderRadius: 18,
-    padding: 14,
+  sectionSubTitle: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 12,
+  },
+  compactGrid: {
+    gap: 10,
+  },
+  compactCard: {
+    borderRadius: 16,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  quickCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    marginRight: 10,
-  },
-  quickIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+  compactIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 10,
   },
-  quickIconEmoji: {
-    fontSize: 20,
+  compactIconEmoji: {
+    fontSize: 18,
   },
-  quickTextGroup: {
+  compactInfo: {
     flex: 1,
   },
-  quickTitleText: {
+  compactTitle: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
-  quickSubText: {
+  compactSub: {
     color: colors.textSecondary,
     fontSize: 11,
     marginTop: 2,
   },
-  startPillBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
+  compactPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
-  startPillText: {
+  compactPillText: {
     color: '#FFF',
     fontWeight: '800',
-    fontSize: 13,
-  },
-  startPillArrow: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 11,
   },
 
-  // Weekly Progress Analytics Grid
+  // Progress Section
   progressSection: {
     marginBottom: 20,
   },
@@ -583,89 +507,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: colors.cardBg,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 14,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  metricHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  miniIconBg: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniIconEmoji: {
-    fontSize: 14,
-  },
   metricBigVal: {
-    color: colors.text,
-    fontSize: 18,
+    color: colors.primary,
+    fontSize: 20,
     fontWeight: '900',
   },
   metricLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
-  },
-  metricTrend: {
-    color: colors.secondary,
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-
-  // Learning Phase Cards
-  phaseCard: {
-    backgroundColor: colors.cardBg,
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  phaseIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  phaseIconText: {
-    fontSize: 20,
-  },
-  phaseInfo: {
-    flex: 1,
-  },
-  phaseHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  phaseTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  activeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  activeBadgeText: {
-    color: '#FFF',
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  phaseDesc: {
     color: colors.textSecondary,
     fontSize: 11,
     marginTop: 2,
