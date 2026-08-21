@@ -9,22 +9,25 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#090D16"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kirans.fluentai"
     },
     "android": {
+      "package": "com.kirans.fluentai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
+        "backgroundColor": "#090D16"
       },
       "permissions": [
         "RECORD_AUDIO",
-        "AUDIO_SETTINGS"
+        "AUDIO_SETTINGS",
+        "INTERNET"
       ]
     },
     "web": {
