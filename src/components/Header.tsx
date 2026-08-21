@@ -6,25 +6,39 @@ import { useProgress } from '../context/ProgressContext';
 
 interface HeaderProps {
   onOpenProfile?: () => void;
+  onOpenAdminConsole?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenProfile }) => {
-  const { user } = useAuth();
+export const Header: React.FC<HeaderProps> = ({ onOpenProfile, onOpenAdminConsole }) => {
+  const { user, isAdmin } = useAuth();
   const { xpPoints, streakDays } = useProgress();
 
   return (
     <View style={styles.headerBox}>
-      {/* Top Greeting Row */}
+      {/* Top Greeting Row - Hamburger Icon Removed */}
       <View style={styles.topRow}>
         <View style={styles.greetingLeft}>
-          <Text style={styles.menuIcon}>☰</Text>
           <View>
-            <Text style={styles.greetingText}>Hello, {user?.name || 'English Learner'}! 👋</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.greetingText}>Hello, {user?.name || 'English Learner'}! 👋</Text>
+              {isAdmin && (
+                <View style={styles.adminBadge}>
+                  <Text style={styles.adminBadgeText}>ADMIN</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.subGreeting}>Let's make today a great learning day.</Text>
           </View>
         </View>
 
         <View style={styles.topRight}>
+          {/* Admin Console Quick Launch Button */}
+          {isAdmin && onOpenAdminConsole && (
+            <TouchableOpacity onPress={onOpenAdminConsole} style={styles.adminConsoleBtn}>
+              <Text style={styles.adminConsoleBtnText}>👑 Admin Console</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.bellBtn}>
             <Text style={styles.bellIcon}>🔔</Text>
           </TouchableOpacity>
@@ -73,17 +87,27 @@ const styles = StyleSheet.create({
   greetingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
-  menuIcon: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: '700',
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   greetingText: {
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
+  },
+  adminBadge: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  adminBadgeText: {
+    color: '#000',
+    fontSize: 9,
+    fontWeight: '900',
   },
   subGreeting: {
     color: colors.textSecondary,
@@ -93,7 +117,18 @@ const styles = StyleSheet.create({
   topRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  adminConsoleBtn: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  adminConsoleBtnText: {
+    color: '#000',
+    fontWeight: '900',
+    fontSize: 11,
   },
   bellBtn: {
     width: 36,

@@ -14,6 +14,7 @@ import { SpeakingLabScreen } from './src/screens/SpeakingLabScreen';
 import { StoriesScreen } from './src/screens/StoriesScreen';
 import { OneMinuteSprintScreen } from './src/screens/OneMinuteSprintScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { AdminConsoleScreen } from './src/screens/AdminConsoleScreen';
 import { colors } from './src/theme/colors';
 
 const MainAppContent: React.FC = () => {
@@ -48,6 +49,8 @@ const MainAppContent: React.FC = () => {
         return <DailyConversationScreen />;
       case 'SpeakingLab':
         return <SpeakingLabScreen />;
+      case 'AdminConsole':
+        return <AdminConsoleScreen />;
       case 'Profile':
         return <ProfileScreen />;
       default:
@@ -59,7 +62,10 @@ const MainAppContent: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor={colors.cardBg} />
       <View style={styles.appContainer}>
-        <Header onOpenProfile={() => setCurrentTab('Profile')} />
+        <Header
+          onOpenProfile={() => setCurrentTab('Profile')}
+          onOpenAdminConsole={() => setCurrentTab('AdminConsole')}
+        />
         <View style={styles.bodyContainer}>{renderActiveScreen()}</View>
         <BottomTabs currentTab={currentTab} onTabChange={setCurrentTab} />
       </View>

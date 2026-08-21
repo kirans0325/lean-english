@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, LearningPhase, VoiceGender } from '../types';
+import { UserProfile, LearningPhase, VoiceGender, UserRole } from '../types';
 import { StorageService } from '../services/storage';
 import { SpeechEngine } from '../services/speech';
 
@@ -7,22 +7,25 @@ interface AuthContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAdmin: boolean;
   login: (email: string, name?: string) => Promise<void>;
   register: (name: string, email: string, phase: LearningPhase) => Promise<void>;
   logout: () => Promise<void>;
   setPhase: (phase: LearningPhase) => void;
   setDefaultGender: (gender: VoiceGender) => void;
+  updateUserRole: (userId: number, newRole: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>({
-    id: 1,
-    name: 'English Learner',
-    email: 'learner@example.com',
-    phase: 'basics',
-    daily_goal: 15,
+    id: 999,
+    name: 'App Administrator',
+    email: 'admin@fluentai.com',
+    phase: 'business',
+    daily_goal: 30,
+    role: 'admin',
     default_gender: 'female',
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -48,12 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, name?: string) => {
+    const isAdminUser = email.toLowerCase().includes('admin') || email === 'admin@fluentai.com';
     const newUser: UserProfile = {
-      id: Date.now(),
-      name: name || email.split('@')[0],
+      id: isAdminUser ? 999 : Date.now(),
+      name: name || (isAdminUser ? 'App Administrator' : email.split('@')[0]),
       email,
-      phase: user?.phase || 'basics',
+      phase: 'basics',
       daily_goal: 15,
+      role: isAdminUser ? 'admin' : 'user',
       default_gender: 'female',
     };
     setUser(newUser);
@@ -61,12 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (name: string, email: string, phase: LearningPhase) => {
+    const isAdminUser = email.toLowerCase().includes('admin') || email === 'admin@fluentai.com';
     const newUser: UserProfile = {
-      id: Date.now(),
+      id: isAdminUser ? 999 : Date.now(),
       name,
       email,
       phase,
       daily_goal: 15,
+      role: isAdminUser ? 'admin' : 'user',
       default_gender: 'female',
     };
     setUser(newUser);
@@ -95,17 +102,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserRole = async (userId: number, newRole: UserRole) => {
+    if (user && user.id === userId) {
+      const updated = { ...user, role: newRole };
+      setUser(updated);
+      await StorageService.saveUser(updated);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         isLoading,
+        isAdmin: user?.role === 'admin',
         login,
         register,
         logout,
         setPhase,
         setDefaultGender,
+        updateUserRole,
       }}
     >
       {children}

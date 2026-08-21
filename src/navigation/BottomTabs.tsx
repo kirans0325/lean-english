@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 
 export type TabScreenName =
   | 'Home'
@@ -11,6 +12,7 @@ export type TabScreenName =
   | 'OneMinuteSprint'
   | 'MediaHub'
   | 'DailyConversation'
+  | 'AdminConsole'
   | 'Profile';
 
 interface BottomTabsProps {
@@ -19,12 +21,15 @@ interface BottomTabsProps {
 }
 
 export const BottomTabs: React.FC<BottomTabsProps> = ({ currentTab, onTabChange }) => {
+  const { isAdmin } = useAuth();
+
   const tabs: { name: TabScreenName; label: string; icon: string }[] = [
     { name: 'Home', label: 'Home', icon: '🏠' },
     { name: 'PhaseLessons', label: 'Learn', icon: '📖' },
     { name: 'GrammarSection', label: 'Grammar', icon: '📘' },
     { name: 'SpeakingLab', label: 'Practice', icon: '🎙️' },
     { name: 'Stories', label: 'Progress', icon: '📊' },
+    ...(isAdmin ? [{ name: 'AdminConsole' as TabScreenName, label: 'Admin', icon: '👑' }] : []),
     { name: 'Profile', label: 'Profile', icon: '👤' },
   ];
 
@@ -56,13 +61,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     justifyContent: 'space-around',
   },
   tabItem: {
     alignItems: 'center',
     paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderRadius: 12,
   },
   activeTabItem: {
