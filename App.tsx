@@ -34,7 +34,7 @@ const MainAppContent: React.FC = () => {
       case 'Home':
         return <HomeScreen onNavigate={handleNavigate} />;
       case 'PhaseLessons':
-        return <PhaseLessonsScreen phase={navigationParams?.phase} />;
+        return <PhaseLessonsScreen />;
       case 'Stories':
         return <StoriesScreen />;
       case 'OneMinuteSprint':

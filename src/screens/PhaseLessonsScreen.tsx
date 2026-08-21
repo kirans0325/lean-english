@@ -8,428 +8,786 @@ import {
   Modal,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { useAuth } from '../context/AuthContext';
-import { useProgress } from '../context/ProgressContext';
-import { lessonsBasics } from '../data/lessonsBasics';
-import { lessonsIntermediate } from '../data/lessonsIntermediate';
-import { lessonsAdvanced } from '../data/lessonsAdvanced';
-import { businessEnglishLessons } from '../data/businessEnglish';
-import { LessonItem, LearningPhase } from '../types';
+import { structuredCurriculumSystem, CurriculumCategory, CurriculumLesson } from '../data/curriculumSystem';
 import { AudioButton } from '../components/AudioButton';
+import { SpeechEngine } from '../services/speech';
+import { ApiService } from '../services/api';
+import { PronunciationCard } from '../components/PronunciationCard';
+import { useProgress } from '../context/ProgressContext';
+import { PronunciationEvaluation } from '../types';
 
-interface PhaseLessonsScreenProps {
-  phase?: LearningPhase;
-  onBack?: () => void;
-}
+export const PhaseLessonsScreen: React.FC = () => {
+  const { addXP, markLessonComplete, addSpokenRecord } = useProgress();
+  const [selectedCategory, setSelectedCategory] = useState<CurriculumCategory>(structuredCurriculumSystem[0]);
+  const [activeLesson, setActiveLesson] = useState<CurriculumLesson | null>(null);
+  const [activeActivityIndex, setActiveActivityIndex] = useState<number>(0);
 
-export const PhaseLessonsScreen: React.FC<PhaseLessonsScreenProps> = ({
-  phase: initialPhase,
-  onBack,
-}) => {
-  const { user } = useAuth();
-  const { markLessonComplete, completedLessons } = useProgress();
-  const [activePhase, setActivePhase] = useState<LearningPhase>(
-    initialPhase || user?.phase || 'basics'
-  );
-  const [selectedLesson, setSelectedLesson] = useState<LessonItem | null>(null);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  // Activity Quiz State
+  const [selectedAns, setSelectedAns] = useState<number | null>(null);
+  const [submittedQuiz, setSubmittedQuiz] = useState<boolean>(false);
 
-  const getLessons = (): LessonItem[] => {
-    switch (activePhase) {
-      case 'basics': return lessonsBasics;
-      case 'intermediate': return lessonsIntermediate;
-      case 'advanced': return lessonsAdvanced;
-      case 'business': return businessEnglishLessons;
-      default: return lessonsBasics;
+  // Speak Activity State
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [spokenText, setSpokenText] = useState<string>('');
+  const [evaluation, setEvaluation] = useState<PronunciationEvaluation | null>(null);
+
+  const category = selectedCategory;
+
+  const handleStartLesson = (lesson: CurriculumLesson) => {
+    setActiveLesson(lesson);
+    setActiveActivityIndex(0);
+    setSelectedAns(null);
+    setSubmittedQuiz(false);
+    setEvaluation(null);
+    setSpokenText('');
+  };
+
+  const handleNextActivity = () => {
+    if (!activeLesson) return;
+    if (activeActivityIndex < activeLesson.activities.length - 1) {
+      setActiveActivityIndex((prev) => prev + 1);
+      setSelectedAns(null);
+      setSubmittedQuiz(false);
+    } else {
+      // Completed Lesson!
+      markLessonComplete(activeLesson.id, 30);
+      setActiveLesson(null);
     }
   };
 
-  const currentLessons = getLessons();
+  const handleStartRecording = (targetSentence: string) => {
+    setIsRecording(true);
+    setSpokenText('');
+    setEvaluation(null);
 
-  const handleCompleteLesson = () => {
-    if (selectedLesson) {
-      markLessonComplete(selectedLesson.id, selectedLesson.xpPoints);
-      setSelectedLesson(null);
-      setSelectedAnswer(null);
-      setQuizSubmitted(false);
-    }
+    SpeechEngine.startListening(
+      (text) => {
+        setSpokenText(text);
+      },
+      (err) => {
+        setIsRecording(false);
+        evaluateSpeech(targetSentence, targetSentence);
+      }
+    );
   };
+
+  const handleStopRecording = (targetSentence: string) => {
+    setIsRecording(false);
+    evaluateSpeech(targetSentence, spokenText || targetSentence);
+  };
+
+  const evaluateSpeech = async (target: string, spoken: string) => {
+    const result = await ApiService.evaluatePronunciation(
+      1,
+      target,
+      spoken,
+      'intermediate'
+    );
+    setEvaluation(result);
+
+    await addSpokenRecord({
+      phraseText: target,
+      userTranscription: spoken,
+      accuracyScore: result.accuracyScore,
+      phase: 'intermediate',
+      feedbackDetails: result.wordFeedback,
+      createdAt: new Date().toISOString(),
+    });
+  };
+
+  const currentActivity = activeLesson?.activities[activeActivityIndex];
 
   return (
-    <View style={styles.container}>
-      {/* Phase Switcher Tabs */}
-      <View style={styles.tabContainer}>
-        {(['basics', 'intermediate', 'advanced', 'business'] as LearningPhase[]).map((p) => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.tab, activePhase === p && styles.activeTab]}
-            onPress={() => setActivePhase(p)}
-          >
-            <Text style={[styles.tabText, activePhase === p && styles.activeTabText]}>
-              {p.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.screenTitle}>Structured English Curriculum System</Text>
+      <Text style={styles.screenSub}>8 Specialized Categories • 3-10 Min Guided Speaking & Workplace Lessons.</Text>
 
-      <ScrollView contentContainerStyle={styles.scrollList}>
-        {currentLessons.map((lesson) => {
-          const isDone = completedLessons.includes(lesson.id);
+      {/* Category Tabs */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        {structuredCurriculumSystem.map((cat) => {
+          const isSelected = selectedCategory.id === cat.id;
           return (
             <TouchableOpacity
-              key={lesson.id}
-              style={[styles.lessonCard, isDone && styles.doneCard]}
-              onPress={() => {
-                setSelectedLesson(lesson);
-                setSelectedAnswer(null);
-                setQuizSubmitted(false);
-              }}
+              key={cat.id}
+              style={[styles.catChip, isSelected && { backgroundColor: cat.color, borderColor: cat.color }]}
+              onPress={() => setSelectedCategory(cat)}
             >
-              <View style={styles.lessonHeader}>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryText}>{lesson.category}</Text>
-                </View>
-                <Text style={styles.xpText}>+{lesson.xpPoints} XP</Text>
-              </View>
-              <Text style={styles.lessonTitle}>{lesson.title}</Text>
-              <Text style={styles.lessonDesc}>{lesson.description}</Text>
-              <View style={styles.lessonFooter}>
-                <Text style={styles.durationText}>⏱️ {lesson.durationMins} mins</Text>
-                <Text style={styles.statusText}>{isDone ? '✅ Completed' : '▶️ Start Lesson'}</Text>
-              </View>
+              <Text style={styles.catIcon}>{cat.icon}</Text>
+              <Text style={[styles.catText, isSelected && styles.catTextActive]}>
+                {cat.categoryName}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Lesson Interactive Modal */}
-      {selectedLesson && (
-        <Modal animationType="slide" visible={true} transparent={true}>
+      {/* Active Category Header */}
+      <View style={[styles.catHeaderCard, { borderColor: category.color }]}>
+        <View style={styles.catHeaderLeft}>
+          <Text style={styles.catHeaderIcon}>{category.icon}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.catHeaderTitle}>{category.categoryName}</Text>
+            <Text style={styles.catHeaderDesc}>{category.description}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Modules & Lessons List */}
+      {category.modules.map((mod) => (
+        <View key={mod.id} style={styles.moduleCard}>
+          <Text style={styles.moduleTitle}>{mod.title}</Text>
+          <Text style={styles.moduleDesc}>{mod.description}</Text>
+
+          {mod.lessons.map((les) => (
+            <TouchableOpacity
+              key={les.id}
+              style={styles.lessonItem}
+              onPress={() => handleStartLesson(les)}
+            >
+              <View style={styles.lessonLeft}>
+                <View style={[styles.timeTag, { backgroundColor: category.color }]}>
+                  <Text style={styles.timeTagText}>⏱️ {les.estimatedTimeMins} mins</Text>
+                </View>
+                <Text style={styles.lessonTitle}>{les.title}</Text>
+                <Text style={styles.lessonContext}>{les.situationContext}</Text>
+              </View>
+
+              <View style={[styles.startPill, { backgroundColor: category.color }]}>
+                <Text style={styles.startPillText}>Start ›</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+
+      {/* ACTIVE LESSON MODAL: 6-STEP ACTIVITIES */}
+      {activeLesson && currentActivity && (
+        <Modal animationType="slide" visible={!!activeLesson} transparent={true}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
+              {/* Modal Header */}
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{selectedLesson.title}</Text>
-                <TouchableOpacity onPress={() => setSelectedLesson(null)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLessonCategory}>{category.categoryName.toUpperCase()}</Text>
+                  <Text style={styles.modalLessonTitle}>{activeLesson.title}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveLesson(null)}>
                   <Text style={styles.closeText}>✕</Text>
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.modalBody}>
-                {/* Vocabulary Cards */}
-                <Text style={styles.modalSectionTitle}>Key Vocabulary & Pronunciation</Text>
-                {selectedLesson.vocabulary.map((vocab, i) => (
-                  <View key={i} style={styles.vocabCard}>
-                    <View style={styles.vocabHeader}>
-                      <View>
-                        <Text style={styles.vocabWord}>{vocab.word}</Text>
-                        <Text style={styles.vocabPhonetic}>{vocab.phonetic}</Text>
-                      </View>
-                      <AudioButton text={vocab.word} size="small" />
+              {/* Activity Step Bar */}
+              <View style={styles.activityStepBar}>
+                {activeLesson.activities.map((act, idx) => {
+                  const isCurrent = activeActivityIndex === idx;
+                  const isDone = activeActivityIndex > idx;
+                  return (
+                    <View
+                      key={act.id}
+                      style={[
+                        styles.actDot,
+                        isCurrent && styles.actDotCurrent,
+                        isDone && styles.actDotDone,
+                      ]}
+                    >
+                      <Text style={styles.actDotText}>{isDone ? '✓' : idx + 1}</Text>
                     </View>
-                    <Text style={styles.vocabDef}>{vocab.definition}</Text>
-                    <Text style={styles.vocabExample}>Example: "{vocab.example}"</Text>
-                  </View>
-                ))}
+                  );
+                })}
+              </View>
 
-                {/* Grammar Rule */}
-                {selectedLesson.grammarRule && (
-                  <View style={styles.grammarBox}>
-                    <Text style={styles.grammarTitle}>📌 {selectedLesson.grammarRule.title}</Text>
-                    <Text style={styles.grammarExp}>{selectedLesson.grammarRule.explanation}</Text>
-                    {selectedLesson.grammarRule.examples.map((ex, idx) => (
-                      <Text key={idx} style={styles.grammarExample}>• {ex}</Text>
+              {/* Activity Content Body */}
+              <ScrollView style={styles.actBodyScroll}>
+                <View style={styles.actTypeBadge}>
+                  <Text style={styles.actTypeText}>{currentActivity.type} ACTIVITY</Text>
+                </View>
+                <Text style={styles.actTitle}>{currentActivity.title}</Text>
+
+                {/* 1. LEARN ACTIVITY */}
+                {currentActivity.type === 'LEARN' && currentActivity.learnPhrases && (
+                  <View style={styles.activityBox}>
+                    {currentActivity.learnPhrases.map((lp, idx) => (
+                      <View key={idx} style={styles.phraseCard}>
+                        <View style={styles.phraseCardTop}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.phraseCardText}>"{lp.phrase}"</Text>
+                            <Text style={styles.phraseCardPhonetic}>{lp.phonetic}</Text>
+                          </View>
+                          <AudioButton text={lp.phrase} size="small" />
+                        </View>
+                        <Text style={styles.phraseCardMeaning}>Meaning: {lp.meaning}</Text>
+                        <Text style={styles.phraseCardEx}>Real Life: "{lp.realLifeExample}"</Text>
+                      </View>
                     ))}
                   </View>
                 )}
 
-                {/* Quiz check */}
-                {selectedLesson.quizQuestions && selectedLesson.quizQuestions.length > 0 && (
-                  <View style={styles.quizBox}>
-                    <Text style={styles.modalSectionTitle}>Interactive Quiz Check</Text>
-                    {selectedLesson.quizQuestions.map((q, qIdx) => (
-                      <View key={qIdx} style={styles.qContainer}>
-                        <Text style={styles.qText}>{q.question}</Text>
-                        {q.options.map((opt, optIdx) => {
-                          const isSelected = selectedAnswer === optIdx;
-                          const isCorrect = q.correctIndex === optIdx;
+                {/* 2. LISTEN ACTIVITY */}
+                {currentActivity.type === 'LISTEN' && currentActivity.listenDialogue && (
+                  <View style={styles.activityBox}>
+                    {currentActivity.listenDialogue.map((dl, idx) => (
+                      <View key={idx} style={styles.dialogueBox}>
+                        <Text style={styles.speakerName}>{dl.speaker}:</Text>
+                        <Text style={styles.dialogueText}>"{dl.line}"</Text>
+                        <View style={{ marginTop: 6 }}>
+                          <AudioButton text={dl.line} gender={dl.gender} size="small" />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* 3. UNDERSTAND ACTIVITY */}
+                {currentActivity.type === 'UNDERSTAND' && currentActivity.understandQuestions && (
+                  <View style={styles.activityBox}>
+                    {currentActivity.understandQuestions.map((q, idx) => (
+                      <View key={idx} style={styles.quizBox}>
+                        <Text style={styles.quizQuestion}>{q.question}</Text>
+                        {q.options.map((opt, oIdx) => {
+                          const isSel = selectedAns === oIdx;
+                          const isCorr = q.correctIndex === oIdx;
                           let bg = '#0F172A';
-                          if (quizSubmitted) {
-                            if (isCorrect) bg = colors.success;
-                            else if (isSelected) bg = colors.danger;
-                          } else if (isSelected) {
+                          if (submittedQuiz) {
+                            if (isCorr) bg = colors.success;
+                            else if (isSel) bg = colors.danger;
+                          } else if (isSel) {
                             bg = colors.primary;
                           }
 
                           return (
                             <TouchableOpacity
-                              key={optIdx}
-                              style={[styles.optBtn, { backgroundColor: bg }]}
-                              onPress={() => setSelectedAnswer(optIdx)}
+                              key={oIdx}
+                              style={[styles.quizOptBtn, { backgroundColor: bg }]}
+                              onPress={() => setSelectedAns(oIdx)}
                             >
-                              <Text style={styles.optText}>{opt}</Text>
+                              <Text style={styles.quizOptText}>{opt}</Text>
                             </TouchableOpacity>
                           );
                         })}
-                        {!quizSubmitted ? (
-                          <TouchableOpacity
-                            style={styles.checkQuizBtn}
-                            onPress={() => setQuizSubmitted(true)}
-                          >
-                            <Text style={styles.checkQuizText}>Submit Answer</Text>
+
+                        {!submittedQuiz ? (
+                          <TouchableOpacity style={styles.checkAnsBtn} onPress={() => setSubmittedQuiz(true)}>
+                            <Text style={styles.checkAnsText}>Check Answer</Text>
                           </TouchableOpacity>
                         ) : (
-                          <Text style={styles.quizFeedback}>{q.explanation}</Text>
+                          <Text style={styles.expText}>{q.explanation}</Text>
                         )}
                       </View>
                     ))}
                   </View>
                 )}
+
+                {/* 4. PRACTICE ACTIVITY */}
+                {currentActivity.type === 'PRACTICE' && currentActivity.practiceExercise && (
+                  <View style={styles.activityBox}>
+                    <View style={styles.quizBox}>
+                      <Text style={styles.quizQuestion}>{currentActivity.practiceExercise.prompt}</Text>
+                      {currentActivity.practiceExercise.options.map((opt, oIdx) => {
+                        const isSel = selectedAns === oIdx;
+                        const isCorr = currentActivity.practiceExercise?.correctAnswer === opt;
+                        let bg = '#0F172A';
+                        if (submittedQuiz) {
+                          if (isCorr) bg = colors.success;
+                          else if (isSel) bg = colors.danger;
+                        } else if (isSel) {
+                          bg = colors.primary;
+                        }
+
+                        return (
+                          <TouchableOpacity
+                            key={oIdx}
+                            style={[styles.quizOptBtn, { backgroundColor: bg }]}
+                            onPress={() => setSelectedAns(oIdx)}
+                          >
+                            <Text style={styles.quizOptText}>{opt}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+
+                      {!submittedQuiz ? (
+                        <TouchableOpacity style={styles.checkAnsBtn} onPress={() => setSubmittedQuiz(true)}>
+                          <Text style={styles.checkAnsText}>Check Answer</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.expText}>{currentActivity.practiceExercise.explanation}</Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* 5. SPEAK ACTIVITY */}
+                {currentActivity.type === 'SPEAK' && currentActivity.speakPrompt && (
+                  <View style={styles.activityBox}>
+                    <View style={styles.speakCard}>
+                      <Text style={styles.speakSituation}>Situation: {currentActivity.speakPrompt.situation}</Text>
+                      <Text style={styles.speakTargetText}>"{currentActivity.speakPrompt.targetSentenceToSpeak}"</Text>
+
+                      <View style={styles.speakAudioRow}>
+                        <AudioButton
+                          text={currentActivity.speakPrompt.targetSentenceToSpeak}
+                          gender={currentActivity.speakPrompt.audioHintGender}
+                          labelOverride="Listen Pronunciation"
+                        />
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.recBtn, isRecording && styles.recActiveBtn]}
+                      onPress={
+                        isRecording
+                          ? () => handleStopRecording(currentActivity.speakPrompt!.targetSentenceToSpeak)
+                          : () => handleStartRecording(currentActivity.speakPrompt!.targetSentenceToSpeak)
+                      }
+                    >
+                      <Text style={styles.recBtnText}>
+                        {isRecording ? '⏹️ Stop & Score Pronunciation' : '🎤 Record Your Voice'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {evaluation && <PronunciationCard evaluation={evaluation} />}
+                  </View>
+                )}
+
+                {/* 6. FEEDBACK ACTIVITY */}
+                {currentActivity.type === 'FEEDBACK' && currentActivity.feedbackData && (
+                  <View style={styles.activityBox}>
+                    <View style={styles.feedbackCard}>
+                      <Text style={styles.fbScoreVal}>{currentActivity.feedbackData.fluencyScore}%</Text>
+                      <Text style={styles.fbScoreLbl}>Fluency Score</Text>
+
+                      <View style={styles.fbItemBox}>
+                        <Text style={styles.fbHeader}>✍️ Grammar Correction:</Text>
+                        <Text style={styles.fbBody}>{currentActivity.feedbackData.grammarCorrection}</Text>
+                      </View>
+
+                      <View style={styles.fbItemBox}>
+                        <Text style={styles.fbHeader}>💡 More Natural Sentence (Native Phrasing):</Text>
+                        <Text style={styles.fbBodyAlt}>{currentActivity.feedbackData.nativeAlternative}</Text>
+                        <AudioButton text={currentActivity.feedbackData.nativeAlternative} size="small" />
+                      </View>
+
+                      <View style={styles.fbItemBox}>
+                        <Text style={styles.fbHeader}>🎙️ Pronunciation Tip:</Text>
+                        <Text style={styles.fbBody}>{currentActivity.feedbackData.pronunciationTip}</Text>
+                      </View>
+
+                      <View style={styles.fbItemBox}>
+                        <Text style={styles.fbHeader}>🚀 Specific Improvement Suggestion:</Text>
+                        <Text style={styles.fbBody}>{currentActivity.feedbackData.improvementSuggestion}</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
               </ScrollView>
 
-              <TouchableOpacity style={styles.completeBtn} onPress={handleCompleteLesson}>
-                <Text style={styles.completeBtnText}>Mark Lesson Complete (+{selectedLesson.xpPoints} XP)</Text>
+              {/* Next Step Footer */}
+              <TouchableOpacity style={styles.nextCtaBtn} onPress={handleNextActivity}>
+                <Text style={styles.nextCtaText}>
+                  {activeActivityIndex < activeLesson.activities.length - 1
+                    ? `Continue to Step ${activeActivityIndex + 2} ›`
+                    : 'Complete Lesson (+30 XP) 🎉'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
       )}
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    padding: 16,
     backgroundColor: colors.background,
   },
-  tabContainer: {
+  screenTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  screenSub: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  categoryScroll: {
+    marginBottom: 14,
+  },
+  catChip: {
     flexDirection: 'row',
-    backgroundColor: colors.cardBg,
-    padding: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeTab: {
-    backgroundColor: colors.primary,
-  },
-  tabText: {
-    color: colors.textMuted,
-    fontWeight: '800',
-    fontSize: 10,
-  },
-  activeTabText: {
-    color: '#FFF',
-  },
-  scrollList: {
-    padding: 16,
-  },
-  lessonCard: {
-    backgroundColor: colors.cardBg,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 16,
+    backgroundColor: colors.cardBg,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    gap: 6,
+  },
+  catIcon: {
+    fontSize: 16,
+  },
+  catText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  catTextActive: {
+    color: '#FFF',
+    fontWeight: '900',
+  },
+  catHeaderCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  catHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  catHeaderIcon: {
+    fontSize: 28,
+  },
+  catHeaderTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  catHeaderDesc: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  moduleCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  doneCard: {
-    borderColor: colors.success,
-    backgroundColor: '#064E3B20',
+  moduleTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  lessonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+  moduleDesc: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 12,
   },
-  categoryBadge: {
+  lessonItem: {
     backgroundColor: '#0F172A',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  categoryText: {
-    color: colors.primary,
+  lessonLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  timeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  timeTagText: {
+    color: '#FFF',
     fontSize: 10,
     fontWeight: '800',
   },
-  xpText: {
-    color: colors.accent,
-    fontWeight: '800',
-    fontSize: 12,
-  },
   lessonTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  lessonDesc: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  lessonFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  durationText: {
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-  statusText: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.cardBg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-    flex: 1,
-  },
-  closeText: {
-    color: colors.textMuted,
-    fontSize: 20,
-    padding: 4,
-  },
-  modalBody: {
-    marginBottom: 16,
-  },
-  modalSectionTitle: {
     color: colors.text,
     fontSize: 14,
     fontWeight: '800',
-    marginBottom: 10,
-    marginTop: 8,
   },
-  vocabCard: {
-    backgroundColor: '#0F172A',
+  lessonContext: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  startPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
   },
-  vocabHeader: {
+  startPillText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalLessonCategory: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  modalLessonTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  closeText: {
+    color: colors.textMuted,
+    fontSize: 22,
+  },
+  activityStepBar: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  actDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actDotCurrent: {
+    backgroundColor: colors.primary,
+  },
+  actDotDone: {
+    backgroundColor: colors.secondary,
+  },
+  actDotText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  actBodyScroll: {
+    marginBottom: 16,
+  },
+  actTypeBadge: {
+    backgroundColor: '#1E1B4B',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
     marginBottom: 6,
   },
-  vocabWord: {
+  actTypeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  actTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: '800',
+    marginBottom: 12,
   },
-  vocabPhonetic: {
+  activityBox: {
+    gap: 12,
+  },
+  phraseCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  phraseCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  phraseCardText: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  phraseCardPhonetic: {
     color: colors.primary,
     fontSize: 11,
   },
-  vocabDef: {
-    color: colors.textSecondary,
+  phraseCardMeaning: {
+    color: colors.accent,
     fontSize: 12,
+    fontWeight: '700',
   },
-  vocabExample: {
+  phraseCardEx: {
     color: colors.textMuted,
     fontSize: 11,
     fontStyle: 'italic',
     marginTop: 4,
   },
-  grammarBox: {
-    backgroundColor: '#1E1B4B',
+  dialogueBox: {
+    backgroundColor: colors.cardBg,
     borderRadius: 12,
     padding: 12,
-    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
-  grammarTitle: {
-    color: colors.text,
+  speakerName: {
+    color: colors.primary,
     fontWeight: '800',
+    fontSize: 12,
+  },
+  dialogueText: {
+    color: colors.text,
     fontSize: 14,
-  },
-  grammarExp: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  grammarExample: {
-    color: colors.accent,
-    fontSize: 12,
+    marginTop: 2,
   },
   quizBox: {
-    marginTop: 12,
+    backgroundColor: colors.cardBg,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
-  qContainer: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-  },
-  qText: {
+  quizQuestion: {
     color: colors.text,
-    fontWeight: '700',
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '800',
     marginBottom: 10,
   },
-  optBtn: {
-    padding: 10,
-    borderRadius: 8,
+  quizOptBtn: {
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  quizOptText: {
+    color: '#FFF',
+    fontSize: 13,
+  },
+  checkAnsBtn: {
+    backgroundColor: colors.primary,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  checkAnsText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  expText: {
+    color: colors.success,
+    fontSize: 12,
+    marginTop: 8,
+  },
+  speakCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  speakSituation: {
+    color: colors.textSecondary,
+    fontSize: 12,
     marginBottom: 6,
   },
-  optText: {
-    color: '#FFF',
-    fontSize: 12,
-  },
-  checkQuizBtn: {
-    backgroundColor: colors.primary,
-    padding: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  checkQuizText: {
-    color: '#FFF',
+  speakTargetText: {
+    color: colors.text,
+    fontSize: 16,
     fontWeight: '800',
-    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  quizFeedback: {
-    color: colors.success,
-    fontSize: 11,
-    marginTop: 8,
+  speakAudioRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  completeBtn: {
+  recBtn: {
     backgroundColor: colors.secondary,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
   },
-  completeBtnText: {
+  recActiveBtn: {
+    backgroundColor: colors.danger,
+  },
+  recBtnText: {
     color: '#FFF',
+    fontWeight: '900',
+    fontSize: 15,
+  },
+  feedbackCard: {
+    backgroundColor: colors.cardBg,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  fbScoreVal: {
+    color: colors.primary,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  fbScoreLbl: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginBottom: 14,
+  },
+  fbItemBox: {
+    width: '100%',
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 10,
+  },
+  fbHeader: {
+    color: colors.accent,
+    fontSize: 11,
     fontWeight: '800',
+    marginBottom: 4,
+  },
+  fbBody: {
+    color: colors.text,
+    fontSize: 13,
+  },
+  fbBodyAlt: {
+    color: colors.secondary,
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginBottom: 6,
+  },
+  nextCtaBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  nextCtaText: {
+    color: '#FFF',
+    fontWeight: '900',
     fontSize: 15,
   },
 });
